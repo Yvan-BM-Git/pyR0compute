@@ -1,6 +1,6 @@
 # pyR0Compute
 
-Este repositorio contiene una herramienta simbólica en Python para calcular el número básico de reproducción \( R_0 \) mediante el método de próxima generación, aplicable a modelos epidemiológicos definidos por sistemas de ecuaciones diferenciales.
+Este repositorio contiene una herramienta simbólica en Python para calcular el número básico de reproducción $R_0$ mediante el método de próxima generación, aplicable a modelos epidemiológicos definidos por sistemas de ecuaciones diferenciales.
 
 ## Instrucciones de uso
 
