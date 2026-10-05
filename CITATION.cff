@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pyR0compute: A Python library for automated symbolic computation of the basic reproduction number via the next-generation matrix"
+authors:
+  - family-names: Baldera-Moreno
+    given-names: Yvan
+    affiliation: "Universidad Católica del Maule, Chile"
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/Yvan-BM-Git/pyR0compute"
+keywords:
+  - basic reproduction number
+  - next-generation matrix
+  - epidemiology
+  - mathematical immunology
+  - symbolic computation

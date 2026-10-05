@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyR0compute"
+dynamic = ["version"]
+description = "Symbolic computation of the basic reproduction number R0 via the next-generation matrix method"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Yvan Baldera-Moreno" }]
+requires-python = ">=3.9"
+dependencies = ["sympy>=1.12", "numpy>=1.22"]
+keywords = [
+  "basic reproduction number", "R0", "next-generation matrix", "epidemiology",
+  "mathematical immunology", "compartmental models", "symbolic computation", "sympy",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Education",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/Yvan-BM-Git/pyR0compute"
+Issues = "https://github.com/Yvan-BM-Git/pyR0compute/issues"
+
+[tool.hatch.version]
+path = "src/pyr0compute/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyr0compute"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/pyr0compute", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
