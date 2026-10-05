@@ -4,6 +4,9 @@ Symbolic computation of the basic reproduction number $R_0$ of compartmental ODE
 
 Write the model, say which compartments are infected, and pyR0compute does the rest: every symbol that is not a state variable is treated as a parameter, the new-infection terms $\mathcal{F}$ and transitions $\mathcal{V}$ are identified, the disease-free equilibrium (DFE) is solved, and $R_0 = \rho(FV^{-1})$ is returned as a SymPy expression.
 
+[![PyPI](https://img.shields.io/pypi/v/pyR0compute)](https://pypi.org/project/pyR0compute/)
+[![Python](https://img.shields.io/pypi/pyversions/pyR0compute)](https://pypi.org/project/pyR0compute/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/pyR0compute_examples.ipynb)
 
 ## Installation
@@ -12,11 +15,7 @@ Write the model, say which compartments are infected, and pyR0compute does the r
 pip install pyR0compute
 ```
 
-Until the first release is on PyPI, install it from GitHub:
-
-```bash
-pip install git+https://github.com/Yvan-BM-Git/pyR0compute
-```
+In a Jupyter or Colab notebook use `%pip install pyR0compute`. The development version can be installed from GitHub with `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
 
 Requires Python ≥ 3.9, SymPy and NumPy.
 
