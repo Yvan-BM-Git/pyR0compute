@@ -1,25 +1,25 @@
 # pyR0compute
 
-Symbolic computation of the basic reproduction number $R_0$ of compartmental ODE models by the next-generation matrix method (van den Driessche & Watmough, 2002).
+Cálculo simbólico del número reproductivo básico $R_0$ en modelos compartimentales de EDO mediante el método de la matriz de próxima generación (van den Driessche y Watmough, 2002).
 
-Write the model, say which compartments are infected, and pyR0compute does the rest: every symbol that is not a state variable is treated as a parameter, the new-infection terms $\mathcal{F}$ and transitions $\mathcal{V}$ are identified, the disease-free equilibrium (DFE) is solved, and $R_0 = \rho(FV^{-1})$ is returned as a SymPy expression.
+Escribe el modelo, indica qué compartimentos están infectados y pyR0compute hace el resto: todo símbolo que no sea una variable de estado se trata como parámetro, se identifican los términos de nuevas infecciones $\mathcal{F}$ y de transiciones $\mathcal{V}$, se resuelve el equilibrio libre de enfermedad (DFE, por sus siglas en inglés) y se obtiene $R_0 = \rho(FV^{-1})$ como expresión de SymPy.
 
 [![PyPI](https://img.shields.io/pypi/v/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![Python](https://img.shields.io/pypi/pyversions/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/pyR0compute_examples.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/pyR0compute_ejemplos.ipynb)
 
-## Installation
+## Instalación
 
 ```bash
 pip install pyR0compute
 ```
 
-In a Jupyter or Colab notebook use `%pip install pyR0compute`. The development version can be installed from GitHub with `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
+En un notebook de Jupyter o Colab usa `%pip install pyR0compute`. La versión en desarrollo se puede instalar desde GitHub con `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
 
-Requires Python ≥ 3.9, SymPy and NumPy.
+Requiere Python ≥ 3.9, SymPy y NumPy.
 
-## Quick start
+## Inicio rápido
 
 ```python
 from pyr0compute import R0Model
@@ -31,18 +31,18 @@ model = R0Model("""
     dR/dt = gamma*I - mu*R
 """, infected=["E", "I"])
 
-model.parameters   # (Lambda, beta, gamma, mu, sigma)  <- detected automatically
+model.parameters   # (Lambda, beta, gamma, mu, sigma)  <- detectados automáticamente
 model.dfe          # {S: Lambda/mu, E: 0, I: 0, R: 0}
 model.R0           # Lambda*beta*sigma/(mu*(gamma + mu)*(mu + sigma))
 ```
 
-The equations can be written in any order; there is no need to list the infected compartments first.
+Las ecuaciones pueden escribirse en cualquier orden; no es necesario poner primero los compartimentos infectados.
 
-### Three ways to enter a model
+### Tres formas de ingresar un modelo
 
 ```python
-# 1. Text: one "dX/dt = ..." (or "X' = ...") line per variable.
-#    Auxiliary lines such as "N = S + I + R" are substituted.
+# 1. Texto: una línea "dX/dt = ..." (o "X' = ...") por variable.
+#    Las líneas auxiliares como "N = S + I + R" se sustituyen.
 R0Model("""
     N = S + I + R
     dS/dt = Lambda - beta*S*I/N - mu*S
@@ -50,53 +50,53 @@ R0Model("""
     dR/dt = gamma*I - mu*R
 """, infected=["I"])
 
-# 2. A dict {variable: right-hand side} (strings or SymPy expressions)
+# 2. Un diccionario {variable: lado derecho} (texto o expresiones de SymPy)
 R0Model({"S": "Lambda - beta*S*I - mu*S",
          "I": "beta*S*I - (gamma + mu)*I"}, infected=["I"])
 
-# 3. SymPy symbols
+# 3. Símbolos de SymPy
 import sympy as sp
 S, I = sp.symbols("S I")
 beta, gamma, mu, Lam = sp.symbols("beta gamma mu Lambda")
 R0Model({S: Lam - beta*S*I - mu*S, I: beta*S*I - (gamma + mu)*I}, infected=[I])
 ```
 
-Use subscripts in names for clean LaTeX: `mu_h`, `alpha_hv`, `Delta_h` are written $\mu_h$, $\alpha_{hv}$, $\Delta_h$. Names that are special in SymPy (`I`, `S`, `E`, `N`, `beta`, `gamma`, `Lambda`, even `lambda`) are plain symbols inside text models, and `^` means a power.
+Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` y `Delta_h` se escriben $\mu_h$, $\alpha_{hv}$ y $\Delta_h$. Los nombres que son especiales en SymPy (`I`, `S`, `E`, `N`, `beta`, `gamma`, `Lambda`, incluso `lambda`) son símbolos comunes dentro de los modelos en texto, y `^` indica potencia.
 
-### What you get
+### Qué se obtiene
 
-| Attribute / method | Content |
+| Atributo / método | Contenido |
 |---|---|
-| `R0` | Basic reproduction number (spectral radius of $FV^{-1}$) |
-| `parameters` | Parameters detected automatically |
-| `new_infections`, `transitions` | Terms $\mathcal{F}_i$ and $\mathcal{V}_i$ of each infected compartment |
-| `dfe`, `dfe_candidates` | Disease-free equilibrium used, and all non-negative ones found |
-| `F`, `V`, `K` | Jacobians at the DFE and next-generation matrix $K = FV^{-1}$ |
-| `next_generation_matrix_small` | $K$ restricted to compartments receiving new infections |
-| `eigenvalues` | Eigenvalues of $K$ |
-| `R0_numeric(values)` | Numerical spectral radius (for large models without a closed form) |
-| `sensitivity_indices(values=None)` | Normalized forward sensitivity indices $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ |
-| `report()` | Step-by-step description of the whole computation |
-| `report_latex(style, standalone, mat_str)` | The same report in LaTeX (`"document"`, compilable with `standalone=True`) or Markdown for notebooks (`"markdown"`) |
-| `latex()` | LaTeX code of $R_0$ |
+| `R0` | Número reproductivo básico (radio espectral de $FV^{-1}$) |
+| `parameters` | Parámetros detectados automáticamente |
+| `new_infections`, `transitions` | Términos $\mathcal{F}_i$ y $\mathcal{V}_i$ de cada compartimento infectado |
+| `dfe`, `dfe_candidates` | Equilibrio libre de enfermedad utilizado, y todos los equilibrios no negativos encontrados |
+| `F`, `V`, `K` | Jacobianas en el DFE y matriz de próxima generación $K = FV^{-1}$ |
+| `next_generation_matrix_small` | $K$ restringida a los compartimentos que reciben nuevas infecciones |
+| `eigenvalues` | Valores propios de $K$ |
+| `R0_numeric(values)` | Radio espectral numérico (para modelos grandes sin forma cerrada) |
+| `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ |
+| `report()` | Descripción paso a paso de todo el cálculo |
+| `report_latex(style, standalone, mat_str)` | El mismo informe en LaTeX (`"document"`, compilable con `standalone=True`) o en Markdown para notebooks (`"markdown"`) |
+| `latex()` | Código LaTeX de $R_0$ |
 
-### When the automatic choices need help
+### Cuándo las elecciones automáticas necesitan ayuda
 
-* **Closed populations** (no births), e.g. the classic SIR: the DFE is not unique, so give it, `dfe={"S": "N"}`. The error message says which value is missing.
-* **Several DFEs** (e.g. logistic vector populations): the one with the most non-zero compartments is used and a warning is shown. Choose another with `dfe={...}`; all are in `model.dfe_candidates`.
-* **Custom decompositions**: the split $\mathcal{F}$/$\mathcal{V}$ is not unique. Override the automatic one with `new_infections={"E": "beta*S*I/N"}`.
+* **Poblaciones cerradas** (sin nacimientos), por ejemplo el SIR clásico: el DFE no es único, así que debes indicarlo con `dfe={"S": "N"}`. El mensaje de error señala qué valor falta.
+* **Varios DFE** (por ejemplo, poblaciones de vectores con crecimiento logístico): se usa el que tiene más compartimentos distintos de cero y se muestra una advertencia. Puedes elegir otro con `dfe={...}`; todos están en `model.dfe_candidates`.
+* **Descomposiciones personalizadas**: la separación $\mathcal{F}$/$\mathcal{V}$ no es única. Puedes reemplazar la automática con `new_infections={"E": "beta*S*I/N"}`.
 
-### How new infections are detected
+### Cómo se detectan las nuevas infecciones
 
-In the equation of an infected compartment, a positive term is a new infection when it involves an infected compartment and either (i) it is lost from an uninfected compartment (a transfer such as $S \to E$), or (ii) it involves an uninfected compartment and is not a transfer between infected compartments. Progression ($E \to I$), treatment failure, superinfection between strains, deaths and recoveries go to $\mathcal{V}$. `model.report()` shows the classification of every term and the reason.
+En la ecuación de un compartimento infectado, un término positivo es una nueva infección cuando involucra un compartimento infectado y además (i) se pierde desde un compartimento no infectado (una transferencia como $S \to E$), o (ii) involucra un compartimento no infectado y no es una transferencia entre compartimentos infectados. La progresión ($E \to I$), la falla del tratamiento, la superinfección entre cepas, las muertes y las recuperaciones van a $\mathcal{V}$. `model.report()` muestra la clasificación de cada término y su justificación.
 
-## Validation
+## Validación
 
-The test suite (`pytest`) reproduces known results: SIR (with and without vital dynamics, mass-action and frequency-dependent), SEIR, a vaccination model, Ross-Macdonald, a host-vector SEIR/SEI model with human-to-human transmission and logistic vectors, the treatment model of van den Driessche & Watmough (2002, §4.1), within-host target cell-infected cell-virus models and a two-strain model with superinfection. Symbolic results are also checked against the numerical spectral radius.
+El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, y un modelo de dos cepas con superinfección. Los resultados simbólicos también se contrastan con el radio espectral numérico.
 
-## Previous interface
+## Interfaz anterior
 
-Code written for the original notebook keeps working:
+El código escrito para el notebook original sigue funcionando:
 
 ```python
 from pyr0compute import GeneralEpidemiologicalModel
@@ -104,17 +104,17 @@ model = GeneralEpidemiologicalModel(variables, parameters, equations, infected_i
 model.calculate_R0()
 ```
 
-## Citation
+## Ejemplos
 
-If you use pyR0compute in your research, please cite it (see `CITATION.cff`) together with:
+El notebook `examples/pyR0compute_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección.
+
+## Cita
+
+Si usas pyR0compute en tu investigación, cítalo (ver `CITATION.cff`) junto con:
 
 * van den Driessche, P., & Watmough, J. (2002). Reproduction numbers and sub-threshold endemic equilibria for compartmental models of disease transmission. *Mathematical Biosciences*, 180(1-2), 29-48.
 * Diekmann, O., Heesterbeek, J. A. P., & Roberts, M. G. (2010). The construction of next-generation matrices for compartmental epidemic models. *Journal of the Royal Society Interface*, 7(47), 873-885.
 
-## Resumen en español
+## Licencia
 
-pyR0compute calcula simbólicamente el número básico de reproducción $R_0$ mediante el método de la matriz de próxima generación. Basta escribir el sistema de EDO e indicar los compartimentos infectados: todos los demás símbolos se reconocen automáticamente como parámetros, se identifican los términos de nuevas infecciones, se calcula el equilibrio libre de enfermedad y se obtiene $R_0$. El notebook `examples/pyR0compute_examples.ipynb` contiene ejemplos listos para Google Colab.
-
-## License
-
-MIT, see `LICENSE`.
+MIT, ver `LICENSE`.
