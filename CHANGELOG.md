@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Global sensitivity analysis of R0 (optional dependency: `pip install "pyR0compute[global]"`, SciPy >= 1.11):
+  - `R0Model.prcc()`: Latin hypercube sampling with partial rank correlation coefficients and their p-values (Marino et al. 2008). Monotonicity of R0 in each parameter is checked with its symbolic derivative at every sample.
+  - `R0Model.sobol_indices()`: first-order and total Sobol indices with bootstrap confidence intervals (Saltelli et al. 2010 estimators of `scipy.stats.sobol_indices`); `log_output=True` analyses log R0.
+  - `R0Model.global_sensitivity(method=...)` dispatcher and `GlobalSensitivityResult` with `as_dict`, `ranking`, `to_dataframe`, `to_latex` (document or Markdown) and `plot`.
+  - Distributions given as `(low, high)`, `("loguniform", ...)`, `("normal", ...)`, `("truncnormal", ...)`, `("triangular", ...)` or frozen `scipy.stats` objects; or `baseline=` with `spread=`; `fixed=` parameters.
+  - Vectorized evaluation of the closed-form R0 (including `Max(...)` for competing strains), with fallback to the numerical spectral radius of K.
+- Example notebook `examples/pyR0compute_sensibilidad_global.ipynb`.
+
 ## 0.1.0 (unreleased)
 
 First packaged release. The code of the original notebook was turned into an installable library.

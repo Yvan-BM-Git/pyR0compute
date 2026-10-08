@@ -15,6 +15,7 @@ dependencies = ["sympy>=1.12", "numpy>=1.22"]
 keywords = [
   "basic reproduction number", "R0", "next-generation matrix", "epidemiology",
   "mathematical immunology", "compartmental models", "symbolic computation", "sympy",
+  "sensitivity analysis", "PRCC", "Sobol indices",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -28,7 +29,8 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
+global = ["scipy>=1.11"]
+test = ["pytest>=7", "scipy>=1.11"]
 
 [project.urls]
 Homepage = "https://github.com/Yvan-BM-Git/pyR0compute"

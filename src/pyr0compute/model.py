@@ -705,6 +705,36 @@ class R0Model:
             out[self._to_orig[p]] = index
         return out
 
+    def prcc(self, distributions=None, **kwargs):
+        """Global sensitivity of R0 by LHS-PRCC (Marino et al. 2008).
+
+        ``distributions`` maps parameters to specs such as ``(low, high)`` or
+        ``("loguniform", low, high)``. See :func:`pyr0compute.global_sensitivity.prcc`
+        for all options (``n``, ``baseline``, ``spread``, ``fixed``, ``seed``).
+        Needs SciPy.
+        """
+        from .global_sensitivity import prcc
+        return prcc(self, distributions, **kwargs)
+
+    def sobol_indices(self, distributions=None, **kwargs):
+        """First-order and total Sobol indices of R0 (Saltelli et al. 2010).
+
+        See :func:`pyr0compute.global_sensitivity.sobol` for all options
+        (``n``, ``baseline``, ``spread``, ``fixed``, ``seed``, ``log_output``,
+        ``confidence_level``). Needs SciPy >= 1.11.
+        """
+        from .global_sensitivity import sobol
+        return sobol(self, distributions, **kwargs)
+
+    def global_sensitivity(self, distributions=None, method: str = "prcc", **kwargs):
+        """Global sensitivity analysis of R0: ``method="prcc"`` or ``"sobol"``."""
+        method = method.lower()
+        if method in ("prcc", "lhs-prcc", "lhs"):
+            return self.prcc(distributions, **kwargs)
+        if method == "sobol":
+            return self.sobol_indices(distributions, **kwargs)
+        raise ValueError("method must be 'prcc' or 'sobol'.")
+
     def latex(self) -> str:
         """LaTeX code of R0."""
         return sp.latex(self.R0)

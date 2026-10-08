@@ -22,6 +22,7 @@ from .exceptions import (
     NextGenerationError,
     R0ComputeError,
 )
+from .global_sensitivity import GlobalSensitivityResult
 from .model import R0Model
 from .parsing import parse_expression
 
@@ -29,6 +30,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "R0Model",
+    "GlobalSensitivityResult",
     "GeneralEpidemiologicalModel",
     "parse_expression",
     "R0ComputeError",
