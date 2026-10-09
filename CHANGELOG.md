@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-09)
 
 ### Added
 - Models with a nonlinear disease-free equilibrium (e.g. within-host models with coupled immune responses):
@@ -11,16 +11,16 @@
   - Global sensitivity evaluates R0 in chain (the `X_star` in solving order, then R0) and differentiates by the chain rule, instead of the large explicit expression (PRCC on the 7-equation model: 60 s to 5 s).
   - `DFESymbol` exported.
 - Tests reproducing Cuesta-Herrera et al. (2025), Math. Biosci. Eng. 22(11):2807-2825 (Eq. 2.4 and the R0* of Figure 3), and checking the 7-equation model against numerical integration and the stability of the full DFE.
-- Example notebook `examples/r0_sistemas_no_lineales.ipynb` (with an Open in Colab badge).
+- Example notebook `examples/03_sistemas_no_lineales.ipynb` (with an Open in Colab badge).
 - Global sensitivity analysis of R0 (optional dependency: `pip install "pyR0compute[global]"`, SciPy >= 1.11):
   - `R0Model.prcc()`: Latin hypercube sampling with partial rank correlation coefficients and their p-values (Marino et al. 2008). Monotonicity of R0 in each parameter is checked with its symbolic derivative at every sample.
   - `R0Model.sobol_indices()`: first-order and total Sobol indices with bootstrap confidence intervals (Saltelli et al. 2010 estimators of `scipy.stats.sobol_indices`); `log_output=True` analyses log R0.
   - `R0Model.global_sensitivity(method=...)` dispatcher and `GlobalSensitivityResult` with `as_dict`, `ranking`, `to_dataframe`, `to_latex` (document or Markdown) and `plot`.
   - Distributions given as `(low, high)`, `("loguniform", ...)`, `("normal", ...)`, `("truncnormal", ...)`, `("triangular", ...)` or frozen `scipy.stats` objects; or `baseline=` with `spread=`; `fixed=` parameters.
   - Vectorized evaluation of the closed-form R0 (including `Max(...)` for competing strains), with fallback to the numerical spectral radius of K.
-- Example notebook `examples/pyR0compute_sensibilidad_global.ipynb`.
+- Example notebook `examples/02_sensibilidad_global.ipynb`.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-05)
 
 First packaged release. The code of the original notebook was turned into an installable library.
 
