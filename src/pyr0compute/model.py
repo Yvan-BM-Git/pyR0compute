@@ -38,7 +38,30 @@ from .parsing import (
 
 EquationsLike = Union[str, Mapping[SymbolLike, ExprLike], Sequence[ExprLike]]
 
-__all__ = ["R0Model"]
+__all__ = ["R0Model", "DFESymbol"]
+
+
+class DFESymbol(sp.Symbol):
+    """Disease-free value ``X^*`` of a compartment ``X``.
+
+    Named ``X_star`` (so that ``X_star*beta`` is not read as a power), shown
+    as ``X*`` in pretty printing and as ``X^{*}`` in LaTeX. Its definition is
+    in :attr:`R0Model.dfe_definitions`.
+    """
+
+    @property
+    def compartment(self) -> sp.Symbol:
+        return sp.Symbol(self.name[: -len("_star")])
+
+    def _latex(self, printer):
+        return printer._print(self.compartment) + "^{*}"
+
+    def _pretty(self, printer):
+        from sympy.printing.pretty.stringpict import prettyForm
+        return prettyForm(*printer._print(self.compartment).right("*"))
+
+    def _sympystr(self, printer):
+        return self.name
 
 
 class R0Model:
@@ -109,6 +132,11 @@ class R0Model:
         self._rng = np.random.default_rng(seed)
         self._R0_cache: Optional[sp.Expr] = None
         self._eigs_cache: Optional[List[sp.Expr]] = None
+        self._R0c_cache: Optional[sp.Expr] = None
+        self._eigs_c_cache: Optional[List[sp.Expr]] = None
+        self._stars: Dict[sp.Symbol, Optional[sp.Expr]] = {}
+        self._star_full: Dict[sp.Symbol, sp.Expr] = {}
+        self._implicit_blocks: List = []
 
         self.definitions: Dict[str, sp.Expr] = {}
         self.variables, self.equations = self._normalize_equations(equations, variables)
@@ -384,6 +412,19 @@ class R0Model:
 
     # ------------------------------------------------ disease-free equilibrium
     def _compute_dfe(self, user_dfe):
+        """Disease-free equilibrium, solved block by block when possible.
+
+        Setting the infected compartments to zero, the equations of the
+        uninfected compartments are split into the strongly connected
+        components of their dependency graph and solved in topological order
+        (e.g. ``[E] -> [H, R] -> [C] -> [B]`` for an immune-response model).
+        Values already found enter later blocks as symbols ``X^*`` rather than
+        as their explicit expressions, which keeps every block small; values
+        without a short closed form stay as ``X^*`` in the compact results
+        (``R0_compact``, ``dfe_definitions``). A block with no closed form is
+        kept implicit and solved numerically when values are given.
+        Structures that do not fit this scheme fall back to a global solve.
+        """
         known: Dict[sp.Symbol, sp.Expr] = {x: sp.Integer(0) for x in self._xi}
         for v, value in user_dfe.items():
             p = self._to_pos[v]
@@ -394,6 +435,207 @@ class R0Model:
                 )
             known[p] = value
 
+        blocks = self._dfe_blocks(known)
+        if blocks is not None:
+            return self._compute_dfe_blocks(known, *blocks)
+        self._stars, self._star_full, self._implicit_blocks = {}, {}, []
+        chosen, candidates = self._compute_dfe_global(known)
+        self._dfe_compact = dict(chosen)
+        return chosen, candidates
+
+    def _star(self, x) -> sp.Symbol:
+        star = DFESymbol(f"{x.name}_star", positive=True)
+        if star.name in self.symbols:
+            raise ModelSpecificationError(
+                f"'{star.name}' is a symbol of the model, but it is the name used for the "
+                f"disease-free value of {x.name}. Please rename it."
+            )
+        return star
+
+    def _dfe_blocks(self, known):
+        """Equations and solving order for the block method, or None to use the global solve."""
+        unknown = [x for x in self._xu if x not in known]
+        eqs: Dict[sp.Symbol, sp.Expr] = {}
+        for x in self._xu:
+            eq = sp.together(self._f[x].xreplace(known))
+            if x in known:
+                if sp.simplify(eq) != 0:
+                    if not eq.free_symbols & set(unknown):
+                        raise DiseaseFreeEquilibriumError(
+                            f"The given dfe values do not satisfy d{self._orig(x)}/dt = 0 "
+                            f"(residual {self._orig(eq)})."
+                        )
+                    return None  # an extra constraint on the unknowns: solve globally
+                continue
+            if sp.simplify(eq) == 0:
+                continue  # undetermined at the DFE (checked when building F and V)
+            if x not in eq.free_symbols:
+                return None  # dX/dt does not determine X: no natural block structure
+            eqs[x] = eq
+        order = list(eqs)
+        edges = [(x, y) for x in order for y in order if x is not y and y in eqs[x].free_symbols]
+        components = sp.utilities.iterables.strongly_connected_components((order, edges))
+        solved = set()
+        for comp in components:  # dependencies must come first
+            deps = {y for x in comp for y in eqs[x].free_symbols if y in eqs}
+            if not deps <= solved | set(comp):
+                return None
+            solved |= set(comp)
+        return eqs, components
+
+    def _random_params(self, n: int):
+        params = sorted((p for p in self._to_orig if p not in self._x), key=lambda s: s.name)
+        return params, [self._rng.uniform(0.01, 1.0, len(params)) for _ in range(n)]
+
+    def _plausible(self, values: Mapping[sp.Symbol, sp.Expr]) -> bool:
+        """False if some value is clearly negative or non-real for every positive parameter set."""
+        exprs = [sp.sympify(v) for v in values.values()]
+        if any(e.is_negative or e.is_real is False for e in exprs):
+            return False
+        nontrivial = [e for e in exprs if e.free_symbols]
+        if not nontrivial:
+            return True
+        params, samples = self._random_params(24)
+        funcs = [sp.lambdify(params, e, "numpy") for e in nontrivial]
+        for f in funcs:
+            seen, ok = 0, False
+            for point in samples:
+                with np.errstate(all="ignore"):
+                    try:
+                        val = complex(f(*point))
+                    except (ZeroDivisionError, OverflowError, ValueError):
+                        continue
+                if not np.isfinite(val):
+                    continue
+                seen += 1
+                if val.real >= -1e-12 * max(1.0, abs(val)) and abs(val.imag) <= 1e-9 * max(1.0, abs(val)):
+                    ok = True
+                    break
+            if seen and not ok:
+                return False
+        return True
+
+    _INLINE_OPS = 40
+
+    def _inline(self, value) -> bool:
+        """Short, radical-free values in terms of parameters only are written out in full."""
+        if value.free_symbols & set(self._star_full):
+            return False
+        if value.has(sp.RootOf, sp.CRootOf):
+            return False
+        if any(not p.exp.is_Integer for p in value.atoms(sp.Pow)):
+            return False
+        return sp.count_ops(value) <= self._INLINE_OPS
+
+    def _solve_block(self, comp, eqs, compact):
+        """All non-negative solutions of one block, or None if it has no closed form."""
+        free = {x: sp.Symbol(f"_{x.name}_dfe") for x in comp}
+        back = {d: x for x, d in free.items()}
+        system = [sp.numer(sp.together(eqs[x].xreplace(compact))).xreplace(free) for x in comp]
+        try:
+            raw = sp.solve(system, list(free.values()), dict=True)
+        except NotImplementedError:
+            return None
+        if not raw:
+            # SymPy found no closed form (e.g. a general quintic): keep it implicit,
+            # it is solved numerically when values are given
+            return None
+        out = []
+        for s in raw:
+            if set(s) != set(free.values()):
+                return None  # solved only partially
+            sol = {back[d]: sp.sympify(v).xreplace(back) for d, v in s.items()}
+            if any(v.has(sp.RootOf, sp.CRootOf) for v in sol.values()):
+                return None
+            out.append(sol)
+        return out
+
+    def _compute_dfe_blocks(self, known, eqs, components):
+        # state: (compact point, star definitions, star -> explicit value)
+        states = [(dict(known), {}, {})]
+        self._implicit_blocks = []
+        for comp in components:
+            new_states = []
+            for compact, stars, star_full in states:
+                self._star_full = star_full
+                solutions = self._solve_block(comp, eqs, compact)
+                if solutions is None:
+                    # no closed form: keep the block implicit (solved numerically on demand)
+                    compact, stars, star_full = dict(compact), dict(stars), dict(star_full)
+                    for x in comp:
+                        s = self._star(x)
+                        compact[x], stars[s], star_full[s] = s, None, s
+                    block = [(self._star(x), eqs[x].xreplace(compact)) for x in comp]
+                    if block not in self._implicit_blocks:
+                        self._implicit_blocks.append(block)
+                    new_states.append((compact, stars, star_full))
+                    continue
+                for sol in solutions:
+                    explicit = {x: v.xreplace(star_full) for x, v in sol.items()}
+                    if not self._plausible(explicit):
+                        continue
+                    c2, s2, f2 = dict(compact), dict(stars), dict(star_full)
+                    for x, v in sol.items():
+                        if len(comp) == 1 and self._simplify_enabled and sp.count_ops(v) <= 200:
+                            v = self._simp(v)
+                        if self._inline(v):
+                            c2[x] = v
+                        else:
+                            s = self._star(x)
+                            c2[x], s2[s], f2[s] = s, v, v.xreplace(f2)
+                    new_states.append((c2, s2, f2))
+            if not new_states:
+                raise DiseaseFreeEquilibriumError(
+                    "No non-negative disease-free equilibrium was found for "
+                    f"{[str(self._orig(x)) for x in comp]}. Pass it (or part of it) with dfe={{...}}."
+                )
+            if len(new_states) > 64:
+                raise DiseaseFreeEquilibriumError(
+                    "Too many disease-free equilibria; pass the one to use with dfe={...}."
+                )
+            states = new_states
+
+        undetermined = [x for x in self._xu if x not in states[0][0]]
+
+        def explicit_point(state):
+            compact, _, star_full = state
+            point = {x: v.xreplace(star_full) for x, v in compact.items()}
+            for x in undetermined:
+                point.setdefault(x, x)
+            return point
+
+        def nonzero(state):
+            return sum(1 for v in explicit_point(state).values() if not sp.sympify(v).is_zero)
+
+        states.sort(key=lambda st: -nonzero(st))
+        compact, stars, star_full = states[0]
+        self._stars, self._star_full = stars, star_full
+        self._dfe_compact = dict(compact)
+        for x in undetermined:
+            self._dfe_compact.setdefault(x, x)
+        chosen = explicit_point(states[0])
+        if len(states) > 1:
+            pretty = {str(self._orig(k)): self._orig(v) for k, v in self._dfe_compact.items()
+                      if k in self._xu}
+            warnings.warn(
+                f"{len(states)} disease-free equilibria were found; using the one with "
+                f"the most non-zero compartments: {pretty}. Pass dfe={{...}} to choose "
+                f"another one (all are in model.dfe_candidates).",
+                stacklevel=4,
+            )
+        for x in self._xi:
+            residual = sp.simplify(self._f[x].xreplace(self._dfe_compact))
+            if residual != 0:
+                raise DiseaseFreeEquilibriumError(
+                    f"d{self._orig(x)}/dt = {self._orig(residual)} at the disease-free point, "
+                    f"so it is not an equilibrium. Check the infected compartments."
+                )
+        candidates = [{self._to_orig[k]: self._orig(v) for k, v in explicit_point(st).items()}
+                      for st in states]
+        return chosen, candidates
+
+    def _compute_dfe_global(self, known):
+        """Previous method: one sympy.solve call over all unknown DFE values."""
         unknown = [x for x in self._xu if x not in known]
         equations = []
         for x in self._xu:
@@ -438,7 +680,7 @@ class R0Model:
                 f"{len(candidates)} disease-free equilibria were found; using the one with "
                 f"the most non-zero compartments: {pretty}. Pass dfe={{...}} to choose "
                 f"another one (all are in model.dfe_candidates).",
-                stacklevel=3,
+                stacklevel=4,
             )
 
         for x in self._xi:
@@ -455,11 +697,24 @@ class R0Model:
         return chosen, orig_candidates
 
     # -------------------------------------------------------------- matrices
+    def _explicit(self, expr):
+        """Replace the DFE symbols X^* by their explicit values (no simplification)."""
+        return expr.xreplace(self._star_full) if self._star_full else expr
+
+    @property
+    def dfe_is_implicit(self) -> bool:
+        """True if part of the DFE has no closed form (it is then solved numerically)."""
+        return any(v is None for v in self._stars.values())
+
     def _build_matrices(self):
+        # Jacobians are taken first and evaluated at the *compact* DFE, where
+        # values without a short closed form are the symbols X^*. The matrices
+        # stay small and R0 is simplified in that form; explicit values are
+        # substituted only at the end, without simplification.
         Fv = sp.Matrix([self._F_terms[x] for x in self._xi])
         Vv = sp.Matrix([self._V_terms[x] for x in self._xi])
-        F = self._simp(Fv.jacobian(self._xi).subs(self._dfe))
-        V = self._simp(Vv.jacobian(self._xi).subs(self._dfe))
+        F = self._simp(Fv.jacobian(self._xi).xreplace(self._dfe_compact))
+        V = self._simp(Vv.jacobian(self._xi).xreplace(self._dfe_compact))
 
         free = (F.free_symbols | V.free_symbols) & set(self._xu)
         if free:
@@ -483,8 +738,19 @@ class R0Model:
                     f"should be non-negative.",
                     stacklevel=3,
                 )
-        self._Fm, self._Vm = F, V
-        self._Km = self._simp(F * V.inv())
+        self._Fc, self._Vc = F, V
+        self._Kc = self._simp(F * self._inverse(V))
+        if self._star_full:
+            self._Fm, self._Vm, self._Km = (self._explicit(M) for M in (F, V, self._Kc))
+        else:
+            self._Fm, self._Vm, self._Km = F, V, self._Kc
+
+    @staticmethod
+    def _inverse(V):
+        """Inverse of V, by substitution when V is triangular (common for staged infections)."""
+        if V.is_lower or V.is_upper:
+            return V.inv(method="LU")
+        return V.inv()
 
     # -------------------------------------------------------------------- R0
     def _rank_one(self, K) -> bool:
@@ -518,6 +784,12 @@ class R0Model:
         return params, (good or fallback[:n_wanted])
 
     def _dominant(self, eigs):
+        if self.dfe_is_implicit:
+            raise NextGenerationError(
+                "Several eigenvalues of F V^-1 may dominate and part of the disease-free "
+                "equilibrium has no closed form. Use model.R0_numeric(values)."
+            )
+        eigs_c, eigs = eigs, [self._explicit(e) for e in eigs]
         params, samples = self._parameter_samples()
         if not samples:
             raise NextGenerationError("Could not evaluate the eigenvalues numerically.")
@@ -540,7 +812,7 @@ class R0Model:
                 "Use model.eigenvalues or model.R0_numeric(values)."
             )
         if len(wins) > 1:
-            winners = [eigs[i] for i in sorted(wins)]
+            winners = [eigs_c[i] for i in sorted(wins)]
             warnings.warn(
                 "The dominant eigenvalue of F V^-1 depends on the parameter values "
                 "(e.g. competing strains), so R0 is returned as Max(...) of the "
@@ -548,7 +820,7 @@ class R0Model:
                 stacklevel=4,
             )
             return sp.Max(*winners)
-        return eigs[next(iter(wins))]
+        return eigs_c[next(iter(wins))]
 
     def _small_domain(self):
         """Indices of the compartments that receive new infections.
@@ -558,13 +830,13 @@ class R0Model:
         K[rows, rows] (next-generation matrix with small domain; Diekmann,
         Heesterbeek & Roberts 2010, J. R. Soc. Interface 7:873-885).
         """
-        n = self._Fm.shape[0]
-        return [i for i in range(n) if any(sp.simplify(self._Fm[i, j]) != 0 for j in range(n))]
+        n = self._Fc.shape[0]
+        return [i for i in range(n) if any(sp.simplify(self._Fc[i, j]) != 0 for j in range(n))]
 
     def _compute_R0(self):
         rows = self._small_domain()
-        K = self._Km.extract(rows, rows)
-        n_zero = self._Km.shape[0] - len(rows)
+        K = self._Kc.extract(rows, rows)
+        n_zero = self._Kc.shape[0] - len(rows)
         if K.shape == (1, 1):
             eigs = [self._simp(K[0, 0])]
             R0 = eigs[0]
@@ -601,8 +873,10 @@ class R0Model:
             nonzero = [e for e in eigs if e != 0]
             R0 = nonzero[0] if len(nonzero) == 1 else self._dominant(nonzero)
         eigs = list(eigs) + [sp.Integer(0)] * n_zero
-        self._eigs_cache = [self._tidy(self._orig(e)) for e in eigs]
-        self._R0_cache = self._tidy(self._orig(R0))
+        self._eigs_c_cache = [self._tidy(self._orig(e)) for e in eigs]
+        self._R0c_cache = self._tidy(self._orig(R0))
+        self._eigs_cache = [self._orig(self._explicit(self._pos(e))) for e in self._eigs_c_cache]
+        self._R0_cache = self._orig(self._explicit(self._pos(self._R0c_cache)))
 
     @staticmethod
     def _tidy(expr):
@@ -614,7 +888,7 @@ class R0Model:
     def next_generation_matrix_small(self) -> sp.Matrix:
         """Next-generation matrix with small domain (rows/columns receiving new infections)."""
         rows = self._small_domain()
-        return self._orig(self._Km.extract(rows, rows))
+        return self._orig(self._explicit(self._Kc.extract(rows, rows)))
 
     # ---------------------------------------------------------- public API
     @property
@@ -672,19 +946,207 @@ class R0Model:
             out[self._to_pos[sym]] = float(val)
         return out
 
+    # ------------------------------------------------------- compact results
+    @property
+    def R0_compact(self) -> sp.Expr:
+        """R0 written with the DFE values ``X^*`` that have no short closed form.
+
+        For models whose disease-free equilibrium is simple (e.g. ``S = Lambda/mu``)
+        this is the same as :attr:`R0`. Otherwise the symbols ``X^*`` are defined
+        in :attr:`dfe_definitions`, in solving order.
+        """
+        if self._R0c_cache is None:
+            self._compute_R0()
+        return self._R0c_cache
+
+    @property
+    def dfe_compact(self) -> Dict[sp.Symbol, sp.Expr]:
+        """Disease-free equilibrium with the symbols ``X^*`` of :attr:`dfe_definitions`."""
+        return {self._to_orig[x]: self._orig(self._dfe_compact[x]) for x in self._x}
+
+    @property
+    def dfe_definitions(self) -> Dict[sp.Symbol, Optional[sp.Expr]]:
+        """Definitions of the symbols ``X^*``, in solving order.
+
+        Each value is written in terms of the parameters and earlier ``X^*``.
+        ``None`` marks a value with no closed form, defined implicitly by
+        ``dX/dt = 0`` and computed numerically by :meth:`dfe_numeric`.
+        """
+        return {s: (None if v is None else self._orig(v)) for s, v in self._stars.items()}
+
+    @property
+    def next_generation_matrix_compact(self) -> sp.Matrix:
+        """``K = F V^{-1}`` written with the symbols ``X^*`` of :attr:`dfe_definitions`."""
+        return self._orig(self._Kc)
+
+    # ------------------------------------------------------ numerical results
+    def _numeric_stars(self, vals: Dict[sp.Symbol, float]) -> Dict[sp.Symbol, sp.Float]:
+        """Numerical values of the symbols X^* for the given parameter values."""
+        vals = {k: sp.Float(v) for k, v in vals.items()}
+        out: Dict[sp.Symbol, sp.Float] = {}
+        done_blocks = set()
+        for s, expr in self._stars.items():
+            if s in out:
+                continue
+            if expr is None:
+                for k, block in enumerate(self._implicit_blocks):
+                    if k not in done_blocks and any(star == s for star, _ in block):
+                        out.update({k: sp.Float(v) for k, v in
+                                    self._solve_implicit_block(block, vals, out).items()})
+                        done_blocks.add(k)
+                        break
+                continue
+            value = expr.xreplace(out).xreplace(vals)
+            self._check_missing(value)
+            num = complex(sp.N(value))
+            if abs(num.imag) > 1e-9 * max(1.0, abs(num)):
+                raise DiseaseFreeEquilibriumError(
+                    f"{s} = {num} is not real for these parameter values, so the "
+                    f"disease-free equilibrium does not exist there."
+                )
+            out[s] = sp.Float(num.real)
+        return out
+
+    def _check_missing(self, expr):
+        missing = sorted(str(self._orig(s)) for s in sp.sympify(expr).free_symbols
+                         if s not in self._star_full)
+        if missing:
+            raise ModelSpecificationError(f"Missing values for parameters: {missing}")
+
+    def _solve_implicit_block(self, block, vals, known):
+        """Solve dX/dt = 0 for one block without closed form (integration + Newton)."""
+        try:
+            from scipy.integrate import solve_ivp
+            from scipy.optimize import fsolve
+        except ImportError as exc:  # pragma: no cover - depends on the environment
+            raise ImportError(
+                "Part of the disease-free equilibrium has no closed form; solving it "
+                "numerically needs SciPy (pip install scipy)."
+            ) from exc
+        stars = [s for s, _ in block]
+        rhs = [eq.xreplace(known).xreplace(vals) for _, eq in block]
+        for r in rhs:
+            leftover = r.free_symbols - set(stars)
+            if leftover:
+                self._check_missing(r.xreplace({s: 1 for s in stars}))
+        f = sp.lambdify(stars, rhs, "numpy")
+
+        def field(_t, y):
+            return np.asarray(f(*y), dtype=float)
+
+        y = np.ones(len(stars))
+        t_end = 10.0
+        for _ in range(14):  # integrate towards the stable state, then refine
+            sol = solve_ivp(field, (0.0, t_end), y, method="LSODA", rtol=1e-8, atol=1e-12)
+            y = sol.y[:, -1]
+            if np.max(np.abs(field(0, y))) <= 1e-8 * max(1.0, float(np.max(np.abs(y)))):
+                break
+            t_end *= 4
+        root, info, ier, _ = fsolve(lambda z: field(0, z), y, full_output=True, xtol=1e-12)
+        if ier != 1 or np.any(root < -1e-9):
+            raise DiseaseFreeEquilibriumError(
+                f"The disease-free values {[str(s) for s in stars]} could not be found "
+                f"numerically for these parameter values."
+            )
+        return {s: float(v) for s, v in zip(stars, root)}
+
+    def dfe_numeric(self, values: Mapping[SymbolLike, float]) -> Dict[sp.Symbol, float]:
+        """Disease-free equilibrium for the given parameter values.
+
+        Closed-form values are evaluated in solving order; blocks without a
+        closed form are solved numerically (needs SciPy).
+        """
+        vals = {k: sp.Float(v) for k, v in self._values(values).items()}
+        stars = self._numeric_stars(vals)
+        out = {}
+        for x in self._x:
+            value = self._dfe_compact[x].xreplace(stars).xreplace(vals)
+            self._check_missing(value)
+            out[self._to_orig[x]] = float(sp.N(value))
+        return out
+
     def R0_numeric(self, values: Mapping[SymbolLike, float]) -> float:
         """Spectral radius of ``F V^{-1}`` computed numerically.
 
-        Useful for large models whose eigenvalues have no closed form.
-        ``values`` maps parameter names (or symbols) to numbers.
+        Useful for large models whose eigenvalues have no closed form, or whose
+        disease-free equilibrium has none. ``values`` maps parameter names (or
+        symbols) to numbers.
         """
-        vals = self._values(values)
-        K = self._Km.subs(vals)
+        vals = {k: sp.Float(v) for k, v in self._values(values).items()}
+        stars = self._numeric_stars(vals)
+        K = self._Kc.xreplace(stars).xreplace(vals)
         missing = sorted(str(self._orig(s)) for s in K.free_symbols)
         if missing:
             raise ModelSpecificationError(f"Missing values for parameters: {missing}")
         eig = np.linalg.eigvals(np.array(K.evalf(), dtype=complex))
         return float(np.max(np.abs(eig)))
+
+    # ------------------------------------------------------ DFE stability (A5)
+    def _uninfected_jacobian(self):
+        xu = [x for x in self._xu if self._dfe_compact.get(x) is not x]
+        f = sp.Matrix([self._f[x] for x in xu])
+        return xu, f.jacobian(xu).xreplace(self._dfe_compact)
+
+    def dfe_stability(self, values: Optional[Mapping[SymbolLike, float]] = None,
+                      n_samples: int = 200) -> Dict[str, object]:
+        """Check condition (A5) of van den Driessche & Watmough (2002).
+
+        R0 is a threshold only if the DFE is stable when the infection is
+        absent: the Jacobian of the uninfected equations with respect to the
+        uninfected compartments, at the DFE, must have eigenvalues with
+        negative real part.
+
+        With ``values``: returns ``{"eigenvalues", "stable", "dfe"}`` at that
+        point. Without: samples ``n_samples`` random positive parameter sets
+        (log-uniform on [0.01, 10]) and returns how many give a non-negative
+        DFE (``"feasible"``) and how many of those are stable (``"stable"``).
+        When the Jacobian is triangular after ordering the compartments, its
+        symbolic eigenvalues are also returned (``"eigenvalues"``).
+        """
+        xu, J = self._uninfected_jacobian()
+        if values is not None:
+            vals = self._values(values)
+            stars = self._numeric_stars(vals)
+            Jn = J.xreplace(stars).xreplace(vals)
+            self._check_missing(Jn)
+            eig = np.linalg.eigvals(np.array(Jn.evalf(), dtype=complex)) if xu else np.array([])
+            return {
+                "eigenvalues": eig,
+                "stable": bool(np.all(eig.real < 0)),
+                "dfe": self.dfe_numeric(values),
+            }
+
+        result: Dict[str, object] = {"eigenvalues": self._triangular_eigenvalues(xu, J)}
+        params = sorted((p for p in self._to_orig if p not in self._x), key=lambda s: s.name)
+        feasible = stable = 0
+        for _ in range(n_samples):
+            point = {p: sp.Float(v) for p, v in zip(params, 10 ** self._rng.uniform(-2, 1, len(params)))}
+            try:
+                stars = self._numeric_stars(point)
+                dfe = [float(sp.N(self._dfe_compact[x].xreplace(stars).xreplace(point))) for x in xu]
+                Jn = np.array(J.xreplace(stars).xreplace(point).evalf(), dtype=complex)
+            except (DiseaseFreeEquilibriumError, TypeError, ValueError, ZeroDivisionError):
+                continue
+            if not np.all(np.isfinite(dfe)) or min(dfe, default=0.0) < 0 or not np.all(np.isfinite(Jn)):
+                continue
+            feasible += 1
+            if not xu or np.all(np.linalg.eigvals(Jn).real < 0):
+                stable += 1
+        result.update({
+            "n_samples": n_samples,
+            "feasible": feasible,
+            "stable": stable,
+            "stable_fraction": stable / feasible if feasible else float("nan"),
+        })
+        return result
+
+    def _triangular_eigenvalues(self, xu, J):
+        n = len(xu)
+        edges = [(i, j) for i in range(n) for j in range(n) if i != j and J[i, j] != 0]
+        comps = sp.utilities.iterables.strongly_connected_components((list(range(n)), edges))
+        if any(len(c) > 1 for c in comps):
+            return None
+        return [self._orig(self._simp(J[i, i])) for i in range(n)]
 
     def sensitivity_indices(self, values: Optional[Mapping[SymbolLike, float]] = None):
         """Normalized forward sensitivity indices of R0.
@@ -735,9 +1197,15 @@ class R0Model:
             return self.sobol_indices(distributions, **kwargs)
         raise ValueError("method must be 'prcc' or 'sobol'.")
 
-    def latex(self) -> str:
-        """LaTeX code of R0."""
-        return sp.latex(self.R0)
+    def latex(self, compact: Optional[bool] = None) -> str:
+        """LaTeX code of R0.
+
+        ``compact`` (default: True when the DFE has values ``X^*`` without a
+        short closed form) writes :attr:`R0_compact` instead of the explicit R0.
+        """
+        if compact is None:
+            compact = bool(self._stars)
+        return sp.latex(self.R0_compact if compact else self.R0)
 
     def report(self) -> str:
         """Step-by-step description of the computation."""
@@ -758,12 +1226,22 @@ class R0Model:
         lines.append("\nTransition terms V_i:")
         for v, t in self.transitions.items():
             lines.append(f"  {v}: {t}")
+        compact = bool(self._stars)
         lines.append("\nDisease-free equilibrium:")
-        for v, val in self.dfe.items():
+        for v, val in (self.dfe_compact if compact else self.dfe).items():
             lines.append(f"  {v} = {val}")
-        lines += ["\nF =", pp(self.F), "\nV =", pp(self.V), "\nK = F V^-1 =", pp(self.K)]
+        if compact:
+            lines.append("where (solved block by block, in this order):")
+            for s, val in self.dfe_definitions.items():
+                lines.append(f"  {s} = {val if val is not None else '(no closed form; numerical)'}")
+            F, V, K = (self._orig(M) for M in (self._Fc, self._Vc, self._Kc))
+        else:
+            F, V, K = self.F, self.V, self.K
+        lines += ["\nF =", pp(F), "\nV =", pp(V), "\nK = F V^-1 =", pp(K)]
         try:
-            lines += ["\nR0 =", pp(self.R0)]
+            lines += ["\nR0 =", pp(self.R0_compact if compact else self.R0)]
+            if compact:
+                lines.append("(model.R0 gives R0 with the explicit DFE values substituted)")
         except NextGenerationError as exc:
             lines += [f"\nR0: {exc}"]
         return "\n".join(lines)
@@ -853,16 +1331,29 @@ class R0Model:
         out.append(heading("Transition terms"))
         out.append(block([(f"\\mathcal{{V}}_{{{tex(v)}}}", tex(t)) for v, t in self.transitions.items()]))
 
+        compact = bool(self._stars)
         out.append(heading("Disease-free equilibrium"))
-        out.append(block([(tex(v), tex(val)) for v, val in self.dfe.items()]))
+        out.append(block([(tex(v), tex(val))
+                          for v, val in (self.dfe_compact if compact else self.dfe).items()]))
+        if compact:
+            out.append("The values marked with $^*$ are found block by block, in this order:")
+            out.append(block([
+                (tex(s), tex(val) if val is not None
+                 else "\\text{root of } \\dot{" + tex(s.compartment) + "} = 0")
+                for s, val in self.dfe_definitions.items()
+            ]))
+            F, V, K = (self._orig(M) for M in (self._Fc, self._Vc, self._Kc))
+        else:
+            F, V, K = self.F, self.V, self.K
 
         out.append(heading("Next-generation matrix"))
         out.append(block([
-            ("F", tex(self.F)),
-            ("V", tex(self.V)),
-            ("K = F V^{-1}", tex(self.K)),
+            ("F", tex(F)),
+            ("V", tex(V)),
+            ("K = F V^{-1}", tex(K)),
         ]))
-        small = self.next_generation_matrix_small
+        small = self._orig(self._Kc.extract(self._small_domain(), self._small_domain())) \
+            if compact else self.next_generation_matrix_small
         if small.shape != self.K.shape:
             rows_ = ", ".join(tex(self.infected[i]) for i in self._small_domain())
             out.append(
@@ -874,7 +1365,8 @@ class R0Model:
 
         out.append(heading("Basic reproduction number"))
         try:
-            out.append(block([("\\mathcal{R}_0 = \\rho\\left(F V^{-1}\\right)", tex(self.R0))]))
+            out.append(block([("\\mathcal{R}_0 = \\rho\\left(F V^{-1}\\right)",
+                               tex(self.R0_compact if compact else self.R0))]))
         except NextGenerationError as exc:
             out.append(str(exc))
 

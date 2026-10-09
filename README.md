@@ -74,7 +74,9 @@ Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` 
 | `F`, `V`, `K` | Jacobianas en el DFE y matriz de próxima generación $K = FV^{-1}$ |
 | `next_generation_matrix_small` | $K$ restringida a los compartimentos que reciben nuevas infecciones |
 | `eigenvalues` | Valores propios de $K$ |
-| `R0_numeric(values)` | Radio espectral numérico (para modelos grandes sin forma cerrada) |
+| `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ y el DFE escritos con los valores $X^*$ que no tienen una forma cerrada corta, y sus definiciones en el orden en que se resuelven (ver *Sistemas con DFE no lineal*) |
+| `R0_numeric(values)`, `dfe_numeric(values)` | Radio espectral y DFE numéricos (para modelos grandes, o con un DFE sin forma cerrada) |
+| `dfe_stability(values=None)` | Condición (A5) de van den Driessche y Watmough: estabilidad del DFE en ausencia de infección |
 | `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ (locales) |
 | `prcc(distributions, n, ...)` | Sensibilidad global por muestreo de hipercubo latino y coeficientes de correlación parcial de rangos (LHS-PRCC) |
 | `sobol_indices(distributions, n, ...)` | Índices de Sobol de primer orden $S_1$ y totales $S_T$, con intervalos de confianza bootstrap |
@@ -108,6 +110,37 @@ sob.plot()                   # S1 y ST con intervalos (requiere matplotlib)
 
 Distribuciones: `(low, high)` o `("uniform", low, high)`, `("loguniform", low, high)`, `("normal", media, de)`, `("truncnormal", media, de, low, high)`, `("triangular", low, moda, high)` o cualquier distribución congelada de `scipy.stats`.
 
+### Sistemas con DFE no lineal
+
+En modelos intrahuésped con respuesta inmune, el equilibrio libre de infección puede ser un sistema no lineal acoplado (por ejemplo, linfocitos T helper $H$ y reguladores $R$ que se regulan mutuamente, y células $C$, $B$ activadas por ambos). Resolverlo de una vez con `sympy.solve` puede no terminar. La librería:
+
+1. Con los compartimentos infectados en cero, separa las ecuaciones de los no infectados en las componentes fuertemente conexas de su grafo de dependencias y las resuelve en orden topológico, por ejemplo $[E] \to [H, R] \to [C] \to [B]$.
+2. Los valores ya resueltos entran a los bloques siguientes como símbolos $X^*$, no como su expresión explícita. Los valores cortos y sin radicales (como $E^* = g_E/d_E$) se escriben completos.
+3. Las Jacobianas $F$ y $V$ se evalúan en ese DFE compacto, de modo que $R_0$ se simplifica cuando todavía es pequeño. `model.R0_compact` lo entrega en esa forma y `model.R0` con los valores explícitos sustituidos (sin simplificar).
+4. Un bloque sin forma cerrada (por ejemplo la raíz de una quíntica) queda implícito: `dfe_numeric` y `R0_numeric` lo resuelven numéricamente (requiere SciPy).
+5. La sensibilidad global evalúa $R_0$ en cadena ($X^*$ en orden y luego $R_0$), con derivadas por regla de la cadena, en lugar de la expresión explícita.
+
+```python
+model = R0Model('''
+    dE/dt = g_E - (d_E + tau_E*V/(V + z_VE))*E
+    dI/dt = tau_E*V*E/(V + z_VE) - (d_I + tau_I*C/(C + z_CI))*I
+    dV/dt = nu*I - (d_V + tau_V*B/(B + z_BV))*V
+    dH/dt = g_H - (d_H - tau_H*I/(I + z_IH) + rho_H*R/(R + z_RH))*H
+    dC/dt = g_C - (d_C - tau_C*H/(H + z_HC) + rho_C*R/(R + z_RC))*C
+    dB/dt = g_B - (d_B - tau_B*H/(H + z_HB) + rho_B*R/(R + z_RB))*B
+    dR/dt = g_R - (d_R - tau_R*H/(H + z_HR) + rho_R)*R
+''', infected=["I", "V"])
+
+model.R0_compact       # g_E*nu*tau_E*(B_star + z_BV)*(C_star + z_CI)/(d_E*z_VE*(...)*(...))
+model.dfe_definitions  # {H_star: ..., R_star: ..., C_star: ..., B_star: ...}
+model.latex()          # usa X^{*} cuando el DFE tiene valores compactos
+model.dfe_stability(values)   # {"eigenvalues": ..., "stable": True, "dfe": {...}}
+```
+
+Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El notebook `examples/r0_sistemas_no_lineales.ipynb` desarrolla este modelo completo.
+
+La condición (A5) de van den Driessche y Watmough exige que el DFE sea estable cuando no hay infección; sin ella $R_0$ no es un umbral. `dfe_stability()` la verifica en un punto (`values=...`) o en muestras aleatorias de parámetros, y entrega los valores propios simbólicos cuando el bloque no infectado es triangular.
+
 ### Cuándo las elecciones automáticas necesitan ayuda
 
 * **Poblaciones cerradas** (sin nacimientos), por ejemplo el SIR clásico: el DFE no es único, así que debes indicarlo con `dfe={"S": "N"}`. El mensaje de error señala qué valor falta.
@@ -120,7 +153,7 @@ En la ecuación de un compartimento infectado, un término positivo es una nueva
 
 ## Validación
 
-El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, y un modelo de dos cepas con superinfección. Los índices de Sobol se contrastan con su valor analítico en un modelo de forma producto y el PRCC con su definición por regresión de residuos. Los resultados simbólicos también se contrastan con el radio espectral numérico.
+El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, un modelo de dos cepas con superinfección, el modelo con linfocitos T helper de Cuesta-Herrera et al. (2025, Ec. 2.4 y valores de la Figura 3) y un modelo inmune de 7 ecuaciones con DFE no lineal, cuyo DFE y $R_0$ se contrastan con la integración numérica del sistema y cuyo umbral se contrasta con la estabilidad del DFE del sistema completo. Los índices de Sobol se contrastan con su valor analítico en un modelo de forma producto y el PRCC con su definición por regresión de residuos. Los resultados simbólicos también se contrastan con el radio espectral numérico.
 
 ## Interfaz anterior
 
@@ -134,7 +167,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/pyR0compute_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/pyR0compute_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local.
+El notebook `examples/pyR0compute_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/pyR0compute_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/r0_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada.
 
 ## Cita
 

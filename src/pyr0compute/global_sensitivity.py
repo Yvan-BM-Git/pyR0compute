@@ -44,7 +44,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import numpy as np
 import sympy as sp
 
-from .exceptions import ModelSpecificationError, NextGenerationError
+from .exceptions import ModelSpecificationError, NextGenerationError, R0ComputeError
 
 __all__ = ["GlobalSensitivityResult", "make_distribution", "prcc", "sobol"]
 
@@ -157,15 +157,33 @@ class _R0Evaluator:
 
     def __init__(self, model):
         self.model = model
+        self.implicit = bool(getattr(model, "dfe_is_implicit", False))
         try:
             expr = model.R0
         except NextGenerationError:
             expr = None
-        self.symbolic = expr is not None
-        if self.symbolic:
+        self.symbolic = expr is not None and not self.implicit
+        if self.implicit:
+            # part of the DFE has no closed form: R0 is computed sample by sample
+            self.expr = None
+            self.parameters = tuple(sorted(model.parameters, key=lambda s: s.name))
+        elif self.symbolic:
             self.expr = expr
             self.parameters = tuple(sorted(expr.free_symbols, key=lambda s: s.name))
-            self._f = sp.lambdify(self.parameters, expr, "numpy")
+            # DFE values X* without a short closed form: evaluate the compact R0
+            # after the X* in solving order (chain rule for derivatives) instead
+            # of the large explicit expression
+            self._chain = None
+            stars = getattr(model, "dfe_definitions", {})
+            if stars:
+                self._chain = [(s, e) for s, e in stars.items()]
+                self._compact = model.R0_compact
+                args = self.parameters + tuple(s for s, _ in self._chain)
+                self._args = args
+                self._defs = [sp.lambdify(args, e, "numpy") for _, e in self._chain]
+                self._f = sp.lambdify(args, self._compact, "numpy")
+            else:
+                self._f = sp.lambdify(self.parameters, expr, "numpy")
         else:
             K = model.next_generation_matrix
             self.expr = None
@@ -181,9 +199,19 @@ class _R0Evaluator:
 
     def __call__(self, columns: Sequence[np.ndarray]) -> np.ndarray:
         n = len(columns[0]) if columns else 1
+        if self.implicit:
+            out = np.full(n, np.nan)
+            for k in range(n):
+                point = {p.name: float(np.broadcast_to(c, (n,))[k])
+                         for p, c in zip(self.parameters, columns)}
+                try:
+                    out[k] = self.model.R0_numeric(point)
+                except R0ComputeError:
+                    pass
+            return out
         with np.errstate(all="ignore"):
             if self.symbolic:
-                out = np.asarray(self._f(*columns), dtype=complex)
+                out = np.asarray(self._f(*self._arguments(columns)), dtype=complex)
                 out = np.broadcast_to(out, (n,))
                 bad = np.abs(out.imag) > 1e-9 * np.maximum(1.0, np.abs(out.real))
                 return np.where(bad, np.nan, out.real).astype(float)
@@ -198,6 +226,38 @@ class _R0Evaluator:
                 out[ok] = np.max(np.abs(np.linalg.eigvals(K[ok])), axis=1)
             return out
 
+    def _arguments(self, columns):
+        """Parameter columns, followed by the X* values when R0 is evaluated in chain."""
+        if not self.symbolic or self._chain is None:
+            return list(columns)
+        n = len(columns[0]) if columns else 1
+        args = [np.asarray(c, dtype=complex) for c in columns]
+        star_vals = [np.zeros(n, dtype=complex) for _ in self._chain]
+        for k, f in enumerate(self._defs):
+            star_vals[k] = np.broadcast_to(np.asarray(f(*args, *star_vals), dtype=complex), (n,))
+        return args + star_vals
+
+    def _derivative(self, columns, i):
+        """dR0/dp_i at the sample, by the chain rule through the X* when needed."""
+        p = self.parameters[i]
+        if self._chain is None:
+            d = sp.lambdify(self.parameters, sp.diff(self.expr, p), "numpy")
+            return d(*columns)
+        args = self._arguments(columns)
+
+        def total(expr, d_stars):
+            # d expr / dp = partial in p + sum over X* of (partial in X*) * dX*/dp
+            value = sp.lambdify(self._args, sp.diff(expr, p), "numpy")(*args)
+            for (s, _), ds in zip(self._chain, d_stars):
+                if s in expr.free_symbols:
+                    value = value + sp.lambdify(self._args, sp.diff(expr, s), "numpy")(*args) * ds
+            return value
+
+        d_stars = []
+        for _, e in self._chain:
+            d_stars.append(total(e, d_stars))
+        return total(self._compact, d_stars)
+
     def derivative_signs(self, columns, idx: Sequence[int]) -> Dict[int, Optional[bool]]:
         """For each parameter index: True if dR0/dp keeps one sign on the sample."""
         out: Dict[int, Optional[bool]] = {}
@@ -205,9 +265,8 @@ class _R0Evaluator:
             return {i: None for i in idx}
         n = len(columns[0])
         for i in idx:
-            d = sp.lambdify(self.parameters, sp.diff(self.expr, self.parameters[i]), "numpy")
             with np.errstate(all="ignore"):
-                vals = np.broadcast_to(np.real(np.asarray(d(*columns), dtype=complex)), (n,))
+                vals = np.broadcast_to(np.real(np.asarray(self._derivative(columns, i), dtype=complex)), (n,))
             vals = vals[np.isfinite(vals)]
             if vals.size == 0:
                 out[i] = None
