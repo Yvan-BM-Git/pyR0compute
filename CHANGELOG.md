@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- Models with a nonlinear disease-free equilibrium (e.g. within-host models with coupled immune responses):
+  - The DFE is solved block by block: strongly connected components of the dependency graph of the uninfected equations, in topological order. Values already found enter later blocks as symbols `X_star` (printed `X^{*}` in LaTeX), which keeps every block small. A 7-equation immune-response model that did not finish in 5 minutes is now built in about 10 s.
+  - `R0Model.R0_compact`, `dfe_compact`, `dfe_definitions` and `next_generation_matrix_compact`: results written with the DFE values that have no short closed form. `R0` keeps the explicit values substituted. `report()`, `report_latex()` and `latex()` show the compact form when it exists.
+  - DFE blocks without a closed form (e.g. the root of a quintic) are kept implicit: `dfe_numeric(values)` and `R0_numeric(values)` solve them numerically (SciPy); `dfe_is_implicit` flags them.
+  - `R0Model.dfe_stability(values=None)`: condition (A5) of van den Driessche & Watmough (2002), at a point or over random parameter samples, with symbolic eigenvalues when the uninfected block is triangular.
+  - Global sensitivity evaluates R0 in chain (the `X_star` in solving order, then R0) and differentiates by the chain rule, instead of the large explicit expression (PRCC on the 7-equation model: 60 s to 5 s).
+  - `DFESymbol` exported.
+- Tests reproducing Cuesta-Herrera et al. (2025), Math. Biosci. Eng. 22(11):2807-2825 (Eq. 2.4 and the R0* of Figure 3), and checking the 7-equation model against numerical integration and the stability of the full DFE.
+- Example script `examples/r0_sistemas_no_lineales.py`.
 - Global sensitivity analysis of R0 (optional dependency: `pip install "pyR0compute[global]"`, SciPy >= 1.11):
   - `R0Model.prcc()`: Latin hypercube sampling with partial rank correlation coefficients and their p-values (Marino et al. 2008). Monotonicity of R0 in each parameter is checked with its symbolic derivative at every sample.
   - `R0Model.sobol_indices()`: first-order and total Sobol indices with bootstrap confidence intervals (Saltelli et al. 2010 estimators of `scipy.stats.sobol_indices`); `log_output=True` analyses log R0.

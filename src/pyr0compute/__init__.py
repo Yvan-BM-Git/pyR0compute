@@ -23,13 +23,14 @@ from .exceptions import (
     R0ComputeError,
 )
 from .global_sensitivity import GlobalSensitivityResult
-from .model import R0Model
+from .model import DFESymbol, R0Model
 from .parsing import parse_expression
 
 __version__ = "0.1.0"
 
 __all__ = [
     "R0Model",
+    "DFESymbol",
     "GlobalSensitivityResult",
     "GeneralEpidemiologicalModel",
     "parse_expression",
