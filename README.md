@@ -137,7 +137,7 @@ model.latex()          # usa X^{*} cuando el DFE tiene valores compactos
 model.dfe_stability(values)   # {"eigenvalues": ..., "stable": True, "dfe": {...}}
 ```
 
-Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El ejemplo `examples/r0_sistemas_no_lineales.py` desarrolla este modelo completo.
+Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El notebook `examples/r0_sistemas_no_lineales.ipynb` desarrolla este modelo completo.
 
 La condición (A5) de van den Driessche y Watmough exige que el DFE sea estable cuando no hay infección; sin ella $R_0$ no es un umbral. `dfe_stability()` la verifica en un punto (`values=...`) o en muestras aleatorias de parámetros, y entrega los valores propios simbólicos cuando el bloque no infectado es triangular.
 
@@ -167,7 +167,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/pyR0compute_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/pyR0compute_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El script `examples/r0_sistemas_no_lineales.py` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada.
+El notebook `examples/pyR0compute_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/pyR0compute_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/r0_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada.
 
 ## Cita
 

@@ -11,7 +11,7 @@
   - Global sensitivity evaluates R0 in chain (the `X_star` in solving order, then R0) and differentiates by the chain rule, instead of the large explicit expression (PRCC on the 7-equation model: 60 s to 5 s).
   - `DFESymbol` exported.
 - Tests reproducing Cuesta-Herrera et al. (2025), Math. Biosci. Eng. 22(11):2807-2825 (Eq. 2.4 and the R0* of Figure 3), and checking the 7-equation model against numerical integration and the stability of the full DFE.
-- Example script `examples/r0_sistemas_no_lineales.py`.
+- Example notebook `examples/r0_sistemas_no_lineales.ipynb` (with an Open in Colab badge).
 - Global sensitivity analysis of R0 (optional dependency: `pip install "pyR0compute[global]"`, SciPy >= 1.11):
   - `R0Model.prcc()`: Latin hypercube sampling with partial rank correlation coefficients and their p-values (Marino et al. 2008). Monotonicity of R0 in each parameter is checked with its symbolic derivative at every sample.
   - `R0Model.sobol_indices()`: first-order and total Sobol indices with bootstrap confidence intervals (Saltelli et al. 2010 estimators of `scipy.stats.sobol_indices`); `log_output=True` analyses log R0.
