@@ -76,6 +76,7 @@ Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` 
 | `eigenvalues` | Valores propios de $K$ |
 | `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ y el DFE escritos con los valores $X^*$ que no tienen una forma cerrada corta, y sus definiciones en el orden en que se resuelven (ver *Sistemas con DFE no lineal*) |
 | `R0_numeric(values)`, `dfe_numeric(values)` | Radio espectral y DFE numéricos (para modelos grandes, o con un DFE sin forma cerrada) |
+| `dfe_blocks`, `dfe_is_implicit` | Cómo se resolvió cada bloque del DFE (forma cerrada, sin forma cerrada o límite de tiempo `dfe_timeout`) y cuánto tardó |
 | `dfe_stability(values=None)` | Condición (A5) de van den Driessche y Watmough: estabilidad del DFE en ausencia de infección |
 | `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ (locales) |
 | `prcc(distributions, n, ...)` | Sensibilidad global por muestreo de hipercubo latino y coeficientes de correlación parcial de rangos (LHS-PRCC) |
@@ -118,7 +119,8 @@ En modelos intrahuésped con respuesta inmune, el equilibrio libre de infección
 2. Los valores ya resueltos entran a los bloques siguientes como símbolos $X^*$, no como su expresión explícita. Los valores cortos y sin radicales (como $E^* = g_E/d_E$) se escriben completos.
 3. Las Jacobianas $F$ y $V$ se evalúan en ese DFE compacto, de modo que $R_0$ se simplifica cuando todavía es pequeño. `model.R0_compact` lo entrega en esa forma y `model.R0` con los valores explícitos sustituidos (sin simplificar).
 4. Un bloque sin forma cerrada (por ejemplo la raíz de una quíntica) queda implícito: `dfe_numeric` y `R0_numeric` lo resuelven numéricamente (requiere SciPy).
-5. La sensibilidad global evalúa $R_0$ en cadena ($X^*$ en orden y luego $R_0$), con derivadas por regla de la cadena, en lugar de la expresión explícita.
+5. Cada bloque acoplado o de grado mayor que 2 se resuelve en un proceso aparte con un límite de tiempo, `dfe_timeout` (20 s por defecto). Si SymPy no termina a tiempo, el proceso se detiene, el bloque queda implícito y se muestra un aviso: el modelo se construye igual y $R_0$ se entrega en forma compacta y numérica. `model.dfe_blocks` informa cómo se resolvió cada bloque y cuánto tardó; `dfe_timeout=None` quita el límite.
+6. La sensibilidad global evalúa $R_0$ en cadena ($X^*$ en orden y luego $R_0$), con derivadas por regla de la cadena, en lugar de la expresión explícita.
 
 ```python
 model = R0Model('''
@@ -167,7 +169,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada.
+El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo.
 
 ## Cita
 

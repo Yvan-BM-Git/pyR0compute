@@ -17,11 +17,12 @@ transmission. Mathematical Biosciences 180, 29-48.
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import sympy as sp
 
+from ._solve import solve_with_time_limit
 from .exceptions import (
     DiseaseFreeEquilibriumError,
     ModelSpecificationError,
@@ -103,6 +104,12 @@ class R0Model:
     seed
         Seed for the random parameter samples used to classify ambiguous
         signs and to identify the dominant eigenvalue.
+    dfe_timeout
+        Time limit, in seconds, for solving each coupled block of the
+        disease-free equilibrium symbolically (default 20). A block that is
+        not solved in time is kept implicit (``X_star`` without closed form)
+        and computed numerically by :meth:`dfe_numeric` and
+        :meth:`R0_numeric`; see :attr:`dfe_blocks`. ``None`` removes the limit.
 
     Examples
     --------
@@ -127,7 +134,14 @@ class R0Model:
         simplify: bool = True,
         verbose: bool = False,
         seed: int = 0,
+        dfe_timeout: Optional[float] = 20.0,
     ) -> None:
+        if dfe_timeout is not None and not dfe_timeout > 0:
+            raise ModelSpecificationError("dfe_timeout must be a positive number of seconds or None.")
+        self.dfe_timeout = dfe_timeout
+        self._block_log: List[Dict[str, object]] = []
+        self._implicit_reason: Dict[sp.Symbol, str] = {}
+        self._implicit_cache: Dict[int, tuple] = {}
         self._simplify_enabled = simplify
         self._rng = np.random.default_rng(seed)
         self._R0_cache: Optional[sp.Expr] = None
@@ -527,44 +541,69 @@ class R0Model:
             return False
         return sp.count_ops(value) <= self._INLINE_OPS
 
+    @staticmethod
+    def _easy_block(system, unknowns) -> bool:
+        """One polynomial equation of degree <= 2: solved directly, without a time limit."""
+        if len(system) != 1:
+            return False
+        try:
+            return sp.Poly(system[0], unknowns[0]).degree() <= 2
+        except sp.PolynomialError:
+            return False
+
     def _solve_block(self, comp, eqs, compact):
-        """All non-negative solutions of one block, or None if it has no closed form."""
+        """Solutions of one block, as ``(status, solutions, seconds)``.
+
+        ``status`` is ``"closed form"``, ``"no closed form"`` or ``"time limit"``;
+        ``solutions`` is None unless the status is ``"closed form"``.
+        """
         free = {x: sp.Symbol(f"_{x.name}_dfe") for x in comp}
         back = {d: x for x, d in free.items()}
         system = [sp.numer(sp.together(eqs[x].xreplace(compact))).xreplace(free) for x in comp]
-        try:
-            raw = sp.solve(system, list(free.values()), dict=True)
-        except NotImplementedError:
-            return None
-        if not raw:
+        unknowns = list(free.values())
+        status, raw, seconds = solve_with_time_limit(
+            system, unknowns, self.dfe_timeout, in_process=self._easy_block(system, unknowns))
+        if status == "timeout":
+            return "time limit", None, seconds
+        if status != "ok" or not raw:
             # SymPy found no closed form (e.g. a general quintic): keep it implicit,
             # it is solved numerically when values are given
-            return None
+            return "no closed form", None, seconds
         out = []
         for s in raw:
             if set(s) != set(free.values()):
-                return None  # solved only partially
+                return "no closed form", None, seconds  # solved only partially
             sol = {back[d]: sp.sympify(v).xreplace(back) for d, v in s.items()}
             if any(v.has(sp.RootOf, sp.CRootOf) for v in sol.values()):
-                return None
+                return "no closed form", None, seconds
             out.append(sol)
-        return out
+        return "closed form", out, seconds
 
     def _compute_dfe_blocks(self, known, eqs, components):
         # state: (compact point, star definitions, star -> explicit value)
         states = [(dict(known), {}, {})]
         self._implicit_blocks = []
+        self._block_log = []
         for comp in components:
             new_states = []
+            record = {"variables": [str(self._orig(x)) for x in comp],
+                      "status": "closed form", "seconds": 0.0}
             for compact, stars, star_full in states:
                 self._star_full = star_full
-                solutions = self._solve_block(comp, eqs, compact)
+                if record["status"] == "time limit":
+                    status, solutions = "time limit", None  # same block, other DFE branch
+                else:
+                    status, solutions, seconds = self._solve_block(comp, eqs, compact)
+                    record["seconds"] += seconds
                 if solutions is None:
-                    # no closed form: keep the block implicit (solved numerically on demand)
+                    # no closed form (or not found in time): keep the block implicit,
+                    # solved numerically on demand
+                    record["status"] = status
                     compact, stars, star_full = dict(compact), dict(stars), dict(star_full)
                     for x in comp:
                         s = self._star(x)
                         compact[x], stars[s], star_full[s] = s, None, s
+                        self._implicit_reason[s] = status
                     block = [(self._star(x), eqs[x].xreplace(compact)) for x in comp]
                     if block not in self._implicit_blocks:
                         self._implicit_blocks.append(block)
@@ -584,6 +623,17 @@ class R0Model:
                             s = self._star(x)
                             c2[x], s2[s], f2[s] = s, v, v.xreplace(f2)
                     new_states.append((c2, s2, f2))
+            self._block_log.append(record)
+            if record["status"] == "time limit":
+                names = record["variables"]
+                warnings.warn(
+                    f"The disease-free values of {names} were not found symbolically within "
+                    f"dfe_timeout={self.dfe_timeout:g} s. They are kept implicit "
+                    f"({', '.join(n + '_star' for n in names)}) and computed numerically by "
+                    f"dfe_numeric() and R0_numeric(). Increase dfe_timeout (None: no limit) "
+                    f"to keep trying symbolically.",
+                    stacklevel=4,
+                )
             if not new_states:
                 raise DiseaseFreeEquilibriumError(
                     "No non-negative disease-free equilibrium was found for "
@@ -655,7 +705,20 @@ class R0Model:
             # SymPy discard legitimate zero components such as R = 0.
             free = {x: sp.Symbol(f"_{x.name}_dfe") for x in unknown}
             back = {d: x for x, d in free.items()}
-            raw = sp.solve([eq.xreplace(free) for eq in equations], list(free.values()), dict=True)
+            status, raw, seconds = solve_with_time_limit(
+                [eq.xreplace(free) for eq in equations], list(free.values()), self.dfe_timeout)
+            self._block_log = [{"variables": [str(self._orig(x)) for x in unknown],
+                                 "status": "closed form" if status == "ok" else
+                                 ("time limit" if status == "timeout" else "no closed form"),
+                                 "seconds": seconds}]
+            if status == "timeout":
+                raise DiseaseFreeEquilibriumError(
+                    f"The disease-free equilibrium was not found within dfe_timeout="
+                    f"{self.dfe_timeout:g} s. Give it (or part of it) with dfe={{...}}, or "
+                    f"increase dfe_timeout (None: no limit)."
+                )
+            if status != "ok":
+                raw = []
             solutions = [{back[d]: sp.sympify(v).xreplace(back) for d, v in s.items()} for s in raw]
             solutions = [s for s in solutions if not any(sp.sympify(v).is_negative for v in s.values())]
             if not solutions:
@@ -705,6 +768,16 @@ class R0Model:
     def dfe_is_implicit(self) -> bool:
         """True if part of the DFE has no closed form (it is then solved numerically)."""
         return any(v is None for v in self._stars.values())
+
+    @property
+    def dfe_blocks(self) -> List[Dict[str, object]]:
+        """How each block of the disease-free equilibrium was solved, in solving order.
+
+        One dict per block with ``"variables"``, ``"status"`` (``"closed form"``,
+        ``"no closed form"`` or ``"time limit"``, the last two solved
+        numerically on demand) and ``"seconds"`` spent solving it symbolically.
+        """
+        return [dict(b) for b in self._block_log]
 
     def _build_matrices(self):
         # Jacobians are taken first and evaluated at the *compact* DFE, where
@@ -991,8 +1064,8 @@ class R0Model:
             if expr is None:
                 for k, block in enumerate(self._implicit_blocks):
                     if k not in done_blocks and any(star == s for star, _ in block):
-                        out.update({k: sp.Float(v) for k, v in
-                                    self._solve_implicit_block(block, vals, out).items()})
+                        out.update({star: sp.Float(v) for star, v in
+                                    self._solve_implicit_block(k, block, vals, out).items()})
                         done_blocks.add(k)
                         break
                 continue
@@ -1013,7 +1086,17 @@ class R0Model:
         if missing:
             raise ModelSpecificationError(f"Missing values for parameters: {missing}")
 
-    def _solve_implicit_block(self, block, vals, known):
+    def _implicit_function(self, k, block):
+        """Vector field of an implicit block, compiled once: f(stars, other symbols)."""
+        if k not in self._implicit_cache:
+            stars = [s for s, _ in block]
+            others = sorted({sym for _, eq in block for sym in eq.free_symbols} - set(stars),
+                            key=lambda sym: sym.name)
+            func = sp.lambdify(stars + others, [eq for _, eq in block], "numpy")
+            self._implicit_cache[k] = (stars, others, func)
+        return self._implicit_cache[k]
+
+    def _solve_implicit_block(self, k, block, vals, known):
         """Solve dX/dt = 0 for one block without closed form (integration + Newton)."""
         try:
             from scipy.integrate import solve_ivp
@@ -1023,16 +1106,15 @@ class R0Model:
                 "Part of the disease-free equilibrium has no closed form; solving it "
                 "numerically needs SciPy (pip install scipy)."
             ) from exc
-        stars = [s for s, _ in block]
-        rhs = [eq.xreplace(known).xreplace(vals) for _, eq in block]
-        for r in rhs:
-            leftover = r.free_symbols - set(stars)
-            if leftover:
-                self._check_missing(r.xreplace({s: 1 for s in stars}))
-        f = sp.lambdify(stars, rhs, "numpy")
+        stars, others, func = self._implicit_function(k, block)
+        missing = [sym for sym in others if sym not in known and sym not in vals]
+        if missing:
+            raise ModelSpecificationError(
+                f"Missing values for parameters: {sorted(str(self._orig(m)) for m in missing)}")
+        other_values = [float(known[sym]) if sym in known else float(vals[sym]) for sym in others]
 
         def field(_t, y):
-            return np.asarray(f(*y), dtype=float)
+            return np.asarray(func(*y, *other_values), dtype=float)
 
         y = np.ones(len(stars))
         t_end = 10.0
@@ -1042,8 +1124,14 @@ class R0Model:
             if np.max(np.abs(field(0, y))) <= 1e-8 * max(1.0, float(np.max(np.abs(y)))):
                 break
             t_end *= 4
-        root, info, ier, _ = fsolve(lambda z: field(0, z), y, full_output=True, xtol=1e-12)
-        if ier != 1 or np.any(root < -1e-9):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            root = fsolve(lambda z: field(0, z), y, xtol=1e-12)
+        # accept by the residual, not by fsolve's flag: started at the root it
+        # reports "no progress" (ier = 5) although the point is correct
+        scale = max(1.0, float(np.max(np.abs(root))))
+        residual = float(np.max(np.abs(field(0, root))))
+        if not np.all(np.isfinite(root)) or residual > 1e-8 * scale or np.any(root < -1e-9):
             raise DiseaseFreeEquilibriumError(
                 f"The disease-free values {[str(s) for s in stars]} could not be found "
                 f"numerically for these parameter values."
@@ -1233,7 +1321,12 @@ class R0Model:
         if compact:
             lines.append("where (solved block by block, in this order):")
             for s, val in self.dfe_definitions.items():
-                lines.append(f"  {s} = {val if val is not None else '(no closed form; numerical)'}")
+                if val is None:
+                    why = (f"not found within dfe_timeout = {self.dfe_timeout:g} s"
+                           if self._implicit_reason.get(self._pos(s)) == "time limit"
+                           else "no closed form")
+                    val = f"({why}; computed numerically)"
+                lines.append(f"  {s} = {val}")
             F, V, K = (self._orig(M) for M in (self._Fc, self._Vc, self._Kc))
         else:
             F, V, K = self.F, self.V, self.K
