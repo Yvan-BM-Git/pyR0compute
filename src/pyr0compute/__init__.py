@@ -15,6 +15,7 @@ are infected, and every other symbol is treated as a parameter::
     model.R0          # Lambda*beta/(mu*(gamma + mu))
 """
 
+from .assumptions import AssumptionResult, AssumptionsReport
 from .compat import GeneralEpidemiologicalModel
 from .exceptions import (
     DiseaseFreeEquilibriumError,
@@ -26,12 +27,14 @@ from .global_sensitivity import GlobalSensitivityResult
 from .model import DFESymbol, R0Model
 from .parsing import parse_expression
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 __all__ = [
     "R0Model",
     "DFESymbol",
     "GlobalSensitivityResult",
+    "AssumptionsReport",
+    "AssumptionResult",
     "GeneralEpidemiologicalModel",
     "parse_expression",
     "R0ComputeError",

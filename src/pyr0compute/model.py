@@ -1276,6 +1276,24 @@ class R0Model:
         from .global_sensitivity import sobol
         return sobol(self, distributions, **kwargs)
 
+    def check_assumptions(self, values: Optional[Mapping[SymbolLike, float]] = None,
+                          n_samples: int = 100, seed: int = 0, language: str = "en"):
+        """Check assumptions (A1)-(A5) of van den Driessche & Watmough (2002).
+
+        Under (A1)-(A5), Theorem 2 of the paper makes R0 a threshold: the DFE is
+        locally asymptotically stable if R0 < 1 and unstable if R0 > 1. Each
+        assumption is reported as ``"holds"``, ``"fails"`` or ``"undecided"``
+        with the basis of the decision (by construction, symbolic proof for all
+        positive parameters, at the given ``values``, or random samples).
+
+        Returns an :class:`~pyr0compute.assumptions.AssumptionsReport`; its
+        :meth:`~pyr0compute.assumptions.AssumptionsReport.to_latex` writes the
+        report in LaTeX (``language="es"`` for Spanish: cumple / no cumple /
+        no se pudo decidir). See :func:`pyr0compute.assumptions.check_assumptions`.
+        """
+        from .assumptions import check_assumptions
+        return check_assumptions(self, values, n_samples=n_samples, seed=seed, language=language)
+
     def global_sensitivity(self, distributions=None, method: str = "prcc", **kwargs):
         """Global sensitivity analysis of R0: ``method="prcc"`` or ``"sobol"``."""
         method = method.lower()

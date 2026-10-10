@@ -5,8 +5,8 @@ authors:
   - family-names: Baldera-Moreno
     given-names: Yvan
     affiliation: "Universidad Católica del Maule, Chile"
-version: 0.2.1
-date-released: 2026-10-09
+version: 0.3.0
+date-released: 2026-10-10
 license: MIT
 repository-code: "https://github.com/Yvan-BM-Git/pyR0compute"
 keywords:
