@@ -26,6 +26,7 @@ from .exceptions import (
 from .global_sensitivity import GlobalSensitivityResult
 from .model import DFESymbol, R0Model
 from .parsing import parse_expression
+from .simulation import Run, SimulationResult
 
 __version__ = "0.3.0"
 
@@ -35,6 +36,8 @@ __all__ = [
     "GlobalSensitivityResult",
     "AssumptionsReport",
     "AssumptionResult",
+    "SimulationResult",
+    "Run",
     "GeneralEpidemiologicalModel",
     "parse_expression",
     "R0ComputeError",
