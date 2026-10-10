@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1 (2026-10-09)
+
+### Added
+- `dfe_timeout` (seconds, default 20): each coupled DFE block, or single equation of degree > 2, is solved symbolically in a separate Python process that is stopped at the limit. A block not solved in time is kept implicit (`X_star`) and computed numerically, with a warning, instead of running indefinitely. `dfe_timeout=None` restores the previous behaviour (no limit, same process). If the worker process cannot be started, the limit is enforced in-process with `SIGALRM` where available.
+- `R0Model.dfe_blocks`: status (`"closed form"`, `"no closed form"`, `"time limit"`) and solving time of each block; `report()` says which values were not found within the limit.
+- Example notebook `examples/04_limite_de_tiempo_dfe.ipynb` (with an Open in Colab badge): a within-host model with an interferon, NK cell and macrophage loop, whose DFE block did not finish with 0.2.0.
+
+### Changed
+- The vector field of an implicit DFE block is compiled once instead of at every evaluation (R0_numeric is about 3 ms per call on the example; PRCC with n = 1000 takes seconds).
+
+### Fixed
+- Implicit DFE blocks were rejected when the numerical integration had already reached the equilibrium (`fsolve` reports no progress, ier = 5); the root is now accepted by its residual.
+
 ## 0.2.0 (2026-10-09)
 
 ### Added
