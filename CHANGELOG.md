@@ -10,6 +10,10 @@
 - `AssumptionsReport` with `holds`, `status`, `as_dict`, `decomposition`, `to_latex(style="document" | "markdown", standalone, language="en" | "es")` (cumple / no cumple / no se pudo decidir) and Markdown display in Jupyter; `AssumptionResult`.
 - Tests with models that violate each assumption; the LaTeX reports are compiled with `pdflatex` when it is available.
 - Example notebook `examples/05_supuestos_vdw.ipynb` (with an Open in Colab badge).
+- `R0Model.simulate(t_span, values=None, initial=None, n_points, n_runs, ranges, default_range, sampling, R0_range, perturbation, method, rtol, atol, seed)`: numerical solution of the ODE model (SciPy `solve_ivp`). Parameters in `values` are fixed and the others drawn at random (log-uniform by default); `R0_range` keeps only draws with R0 in a range; by default the uninfected compartments start at the DFE of each run and the infected ones at a small perturbation. Works with implicit DFEs.
+- `SimulationResult` with the R0, parameters, initial condition and DFE of every run, `final`, `summary`, `to_dataframe`, and the plots `plot` (selected variables, title with `{R0}`, axis labels, labels, colors, line styles, line width, legend, figure size, panels per variable, log scales, limits, runs coloured by R0 < 1 or R0 > 1, DFE lines, drawing on existing axes, saving) and `plot_phase` (phase plane with start points and the DFE).
+- Optional dependency group `plot` (SciPy and matplotlib).
+- Example notebook `examples/06_simulaciones.ipynb`; all example notebooks are stored executed, with their figures in `examples/outputs/`.
 
 ## 0.2.1 (2026-10-09)
 

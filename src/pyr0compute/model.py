@@ -1276,6 +1276,19 @@ class R0Model:
         from .global_sensitivity import sobol
         return sobol(self, distributions, **kwargs)
 
+    def simulate(self, t_span=(0.0, 100.0), values=None, initial=None, **kwargs):
+        """Integrate the ODE model; parameters not in ``values`` are drawn at random.
+
+        By default the uninfected compartments start at the disease-free
+        equilibrium and the infected ones at a small perturbation. Returns a
+        :class:`~pyr0compute.simulation.SimulationResult` with the R0 of every
+        run and the methods ``plot`` and ``plot_phase``. See
+        :func:`pyr0compute.simulation.simulate` for all options (``n_runs``,
+        ``ranges``, ``default_range``, ``R0_range``, ``seed``, ...). Needs SciPy.
+        """
+        from .simulation import simulate
+        return simulate(self, t_span, values=values, initial=initial, **kwargs)
+
     def check_assumptions(self, values: Optional[Mapping[SymbolLike, float]] = None,
                           n_samples: int = 100, seed: int = 0, language: str = "en"):
         """Check assumptions (A1)-(A5) of van den Driessche & Watmough (2002).

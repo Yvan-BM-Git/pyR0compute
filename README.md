@@ -17,7 +17,7 @@ pip install pyR0compute
 
 En un notebook de Jupyter o Colab usa `%pip install pyR0compute`. La versión en desarrollo se puede instalar desde GitHub con `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
 
-Requiere Python ≥ 3.9, SymPy y NumPy. El análisis de sensibilidad global necesita además SciPy ≥ 1.11, que se instala con `pip install "pyR0compute[global]"`.
+Requiere Python ≥ 3.9, SymPy y NumPy. El análisis de sensibilidad global necesita además SciPy ≥ 1.11, que se instala con `pip install "pyR0compute[global]"`; las simulaciones y sus gráficos necesitan SciPy y matplotlib: `pip install "pyR0compute[plot]"`.
 
 ## Inicio rápido
 
@@ -77,6 +77,7 @@ Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` 
 | `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ y el DFE escritos con los valores $X^*$ que no tienen una forma cerrada corta, y sus definiciones en el orden en que se resuelven (ver *Sistemas con DFE no lineal*) |
 | `R0_numeric(values)`, `dfe_numeric(values)` | Radio espectral y DFE numéricos (para modelos grandes, o con un DFE sin forma cerrada) |
 | `dfe_blocks`, `dfe_is_implicit` | Cómo se resolvió cada bloque del DFE (forma cerrada, sin forma cerrada o límite de tiempo `dfe_timeout`) y cuánto tardó |
+| `simulate(t_span, values=None, initial=None, n_runs=1, ...)` | Simulación numérica de la EDO con parámetros fijos o aleatorios y gráficos editables (ver *Simulación*) |
 | `check_assumptions(values=None, language="en")` | Verifica los supuestos (A1)-(A5) de van den Driessche y Watmough (2002) y entrega un informe en LaTeX (ver *Supuestos de van den Driessche y Watmough*) |
 | `dfe_stability(values=None)` | Condición (A5) de van den Driessche y Watmough: estabilidad del DFE en ausencia de infección |
 | `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ (locales) |
@@ -159,6 +160,27 @@ model.check_assumptions(values={...})   # decide en un punto lo que no se pudo d
 
 El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ utilizada, el detalle de cada supuesto con contraejemplos cuando no se cumple, las consecuencias del Lema 1 ($F \ge 0$, $V$ con patrón de signos Z y M-matriz no singular) y, si el DFE elegido no es estable, los otros DFE encontrados que sí lo son. En Jupyter, evaluar el informe lo muestra en Markdown. El notebook `examples/05_supuestos_vdw.ipynb` presenta un modelo que cumple los cinco supuestos y modelos que violan cada uno.
 
+### Simulación
+
+`simulate()` integra la EDO (SciPy) y `plot()` / `plot_phase()` grafican el resultado (matplotlib): `pip install "pyR0compute[plot]"`. Los parámetros dados en `values` quedan fijos y los demás se sortean (log-uniformes en `default_range`, o en `ranges={...}`). Por defecto los compartimentos no infectados parten del DFE y los infectados de una perturbación pequeña, que es la situación que describe $R_0$.
+
+```python
+res = model.simulate((0, 200), values={"Lambda": 10, "mu": 0.1, "gamma": 0.5, "beta": 0.01})
+res.R0, res.final()                          # R0 de la simulación y estado final
+res.plot(["S", "I"], title="SIR con R0 = {R0}", xlabel="días", labels={"I": "infectados"},
+         colors={"I": "#e34948"}, linestyles={"I": "--"}, logy=True, figsize=(7, 3.5),
+         show_dfe=True, save="outputs/sir.png")
+
+ens = model.simulate((0, 200), values={"Lambda": 10, "mu": 0.1, "gamma": 0.5},
+                     ranges={"beta": (0.001, 0.02)}, n_runs=40, seed=1)   # beta aleatorio
+ens.plot(["S", "I"], subplots=True)          # cada simulación coloreada por R0 < 1 o R0 > 1
+ens.plot_phase("S", "I")                      # plano de fase con el DFE
+model.simulate(..., R0_range=(1, None))       # solo sorteos con R0 > 1
+ens.summary(); ens.to_dataframe()             # parámetros y R0 de cada simulación; datos en formato largo
+```
+
+`plot()` acepta `variables`, `title` (`"{R0}"` se reemplaza por su valor), `titles` por panel, `xlabel`, `ylabel`, `labels`, `colors` y `linestyles` (diccionario, lista o un valor), `linewidth`, `alpha`, `legend`, `legend_kw`, `figsize`, `subplots`, `ncols`, `logy`, `logx`, `xlim`, `ylim`, `grid`, `color_by_R0`, `show_dfe`, `ax` (para comparar escenarios en los mismos ejes), `save` y `dpi`. El notebook `examples/06_simulaciones.ipynb` muestra casos con $R_0 < 1$ y $R_0 > 1$ en modelos epidemiológicos e intrahuésped.
+
 ### Cuándo las elecciones automáticas necesitan ayuda
 
 * **Poblaciones cerradas** (sin nacimientos), por ejemplo el SIR clásico: el DFE no es único, así que debes indicarlo con `dfe={"S": "N"}`. El mensaje de error señala qué valor falta.
@@ -185,7 +207,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_supuestos_vdw.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno.
+El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_supuestos_vdw.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno. El notebook `examples/06_simulaciones.ipynb` muestra `simulate()`: SIR con $R_0 < 1$ y $R_0 > 1$, parámetros aleatorios y fijos, conjuntos coloreados por $R_0$, plano de fase, bifurcación transcrítica, vacunación, modelos intrahuésped, el modelo con linfocitos T helper y Ross-Macdonald. Las figuras de los notebooks se guardan en `examples/outputs/`.
 
 ## Cita
 
