@@ -1,14 +1,17 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
+type: software
 title: "pyR0compute: A Python library for automated symbolic computation of the basic reproduction number via the next-generation matrix"
 authors:
   - family-names: Baldera-Moreno
     given-names: Yvan
     affiliation: "Universidad Católica del Maule, Chile"
-version: 0.3.0
+version: 0.3.1
 date-released: 2026-10-10
 license: MIT
 repository-code: "https://github.com/Yvan-BM-Git/pyR0compute"
+repository-artifact: "https://pypi.org/project/pyR0compute/"
+abstract: "Python library for the automated symbolic computation of the basic reproduction number R0 of compartmental ODE models via the next-generation matrix method, with block-by-block disease-free equilibria, verification of the van den Driessche-Watmough assumptions, global sensitivity analysis and numerical simulation."
 keywords:
   - basic reproduction number
   - next-generation matrix

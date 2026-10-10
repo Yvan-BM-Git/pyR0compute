@@ -1,0 +1,52 @@
+{
+  "title": "pyR0compute: A Python library for automated symbolic computation of the basic reproduction number via the next-generation matrix",
+  "upload_type": "software",
+  "description": "<p>pyR0compute is a Python library for the automated symbolic computation of the basic reproduction number R0 of compartmental ODE models via the next-generation matrix method (van den Driessche and Watmough, 2002). The user writes the model and names the infected compartments; every other symbol is treated as a parameter.</p><ul><li>Automatic classification of new-infection and transition terms, and solution of the disease-free equilibrium (DFE) block by block (strongly connected components), with a time limit per block and numerical fallback for blocks without closed form.</li><li>R0 in closed or compact form, numerical R0, step-by-step reports in LaTeX.</li><li>Verification of assumptions (A1)-(A5) of van den Driessche and Watmough, with a LaTeX report.</li><li>Local and global sensitivity analysis of R0 (LHS-PRCC and Sobol indices).</li><li>Numerical simulation of the model with fixed or random parameters and customisable plots.</li></ul><p>Install with <code>pip install pyR0compute</code>. Example notebooks (Google Colab) are in the examples folder of the repository.</p>",
+  "creators": [
+    {
+      "name": "Baldera-Moreno, Yvan",
+      "affiliation": "Universidad Católica del Maule, Chile"
+    }
+  ],
+  "license": "mit",
+  "access_right": "open",
+  "language": "eng",
+  "keywords": [
+    "basic reproduction number",
+    "R0",
+    "next-generation matrix",
+    "epidemiology",
+    "mathematical immunology",
+    "within-host models",
+    "compartmental models",
+    "ordinary differential equations",
+    "symbolic computation",
+    "SymPy",
+    "sensitivity analysis",
+    "PRCC",
+    "Sobol indices",
+    "Python"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/Yvan-BM-Git/pyR0compute",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "https://pypi.org/project/pyR0compute/",
+      "relation": "isIdenticalTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "10.1016/S0025-5564(02)00108-6",
+      "relation": "references",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.1098/rsif.2009.0386",
+      "relation": "references",
+      "scheme": "doi"
+    }
+  ]
+}

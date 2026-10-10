@@ -28,7 +28,7 @@ from .model import DFESymbol, R0Model
 from .parsing import parse_expression
 from .simulation import Run, SimulationResult
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "R0Model",

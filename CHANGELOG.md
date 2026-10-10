@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2026-10-10)
+
+### Added
+- `.zenodo.json` with the metadata used by Zenodo to archive each GitHub release and mint a DOI (creator, affiliation, description, keywords, license, links to GitHub, PyPI and the references of the method).
+- `CITATION.cff`: abstract and link to PyPI.
+
 ## 0.3.0 (2026-10-10)
 
 ### Changed
