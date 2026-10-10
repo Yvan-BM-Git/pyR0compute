@@ -77,6 +77,7 @@ Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` 
 | `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ y el DFE escritos con los valores $X^*$ que no tienen una forma cerrada corta, y sus definiciones en el orden en que se resuelven (ver *Sistemas con DFE no lineal*) |
 | `R0_numeric(values)`, `dfe_numeric(values)` | Radio espectral y DFE numéricos (para modelos grandes, o con un DFE sin forma cerrada) |
 | `dfe_blocks`, `dfe_is_implicit` | Cómo se resolvió cada bloque del DFE (forma cerrada, sin forma cerrada o límite de tiempo `dfe_timeout`) y cuánto tardó |
+| `check_assumptions(values=None, language="en")` | Verifica los supuestos (A1)-(A5) de van den Driessche y Watmough (2002) y entrega un informe en LaTeX (ver *Supuestos de van den Driessche y Watmough*) |
 | `dfe_stability(values=None)` | Condición (A5) de van den Driessche y Watmough: estabilidad del DFE en ausencia de infección |
 | `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ (locales) |
 | `prcc(distributions, n, ...)` | Sensibilidad global por muestreo de hipercubo latino y coeficientes de correlación parcial de rangos (LHS-PRCC) |
@@ -143,6 +144,21 @@ Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se le
 
 La condición (A5) de van den Driessche y Watmough exige que el DFE sea estable cuando no hay infección; sin ella $R_0$ no es un umbral. `dfe_stability()` la verifica en un punto (`values=...`) o en muestras aleatorias de parámetros, y entrega los valores propios simbólicos cuando el bloque no infectado es triangular.
 
+### Supuestos de van den Driessche y Watmough
+
+El Teorema 2 de van den Driessche y Watmough (2002) garantiza que $R_0 = \rho(FV^{-1})$ es un umbral (el DFE es localmente asintóticamente estable si $R_0 < 1$ e inestable si $R_0 > 1$) solo si se cumplen los supuestos (A1)-(A5): flujos no negativos, sin salidas de un compartimento vacío, sin nuevas infecciones en los no infectados, subespacio libre de infección invariante, y DFE estable en ausencia de nuevas infecciones. `check_assumptions()` decide cada uno como *cumple*, *no cumple* o *no se pudo decidir*, con su fundamento: por construcción, demostración simbólica para todo parámetro positivo, en los valores dados con `values=`, o muestras aleatorias (una violación en todas las muestras es *no cumple*; un supuesto que no se pudo demostrar es *no se pudo decidir*).
+
+```python
+informe = model.check_assumptions(language="es")   # "en" por defecto
+informe.holds                     # True si se cumplen los cinco
+informe.status                    # {"A1": "holds", ..., "A5": "undecided"}
+informe["A5"].basis               # "symbolic", "values", "sampling" o "construction"
+informe.to_latex(standalone=True) # informe LaTeX compilable; "markdown" para notebooks
+model.check_assumptions(values={...})   # decide en un punto lo que no se pudo demostrar
+```
+
+El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ utilizada, el detalle de cada supuesto con contraejemplos cuando no se cumple, las consecuencias del Lema 1 ($F \ge 0$, $V$ con patrón de signos Z y M-matriz no singular) y, si el DFE elegido no es estable, los otros DFE encontrados que sí lo son. En Jupyter, evaluar el informe lo muestra en Markdown. El notebook `examples/05_supuestos_vdw.ipynb` presenta un modelo que cumple los cinco supuestos y modelos que violan cada uno.
+
 ### Cuándo las elecciones automáticas necesitan ayuda
 
 * **Poblaciones cerradas** (sin nacimientos), por ejemplo el SIR clásico: el DFE no es único, así que debes indicarlo con `dfe={"S": "N"}`. El mensaje de error señala qué valor falta.
@@ -155,7 +171,7 @@ En la ecuación de un compartimento infectado, un término positivo es una nueva
 
 ## Validación
 
-El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, un modelo de dos cepas con superinfección, el modelo con linfocitos T helper de Cuesta-Herrera et al. (2025, Ec. 2.4 y valores de la Figura 3) y un modelo inmune de 7 ecuaciones con DFE no lineal, cuyo DFE y $R_0$ se contrastan con la integración numérica del sistema y cuyo umbral se contrasta con la estabilidad del DFE del sistema completo. Los índices de Sobol se contrastan con su valor analítico en un modelo de forma producto y el PRCC con su definición por regresión de residuos. Los resultados simbólicos también se contrastan con el radio espectral numérico.
+El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, un modelo de dos cepas con superinfección, el modelo con linfocitos T helper de Cuesta-Herrera et al. (2025, Ec. 2.4 y valores de la Figura 3) y un modelo inmune de 7 ecuaciones con DFE no lineal, cuyo DFE y $R_0$ se contrastan con la integración numérica del sistema y cuyo umbral se contrasta con la estabilidad del DFE del sistema completo. `check_assumptions()` se prueba con modelos que cumplen los cinco supuestos y con modelos que violan cada uno: nuevas infecciones negativas (A1), cosecha constante (A2), asignación de nuevas infecciones a un no infectado (A3, rechazada por construcción), recaída desde un compartimento declarado no infectado (A4), y un DFE inestable por efecto Allee o una matriz $V$ que no es M-matriz (A5); los informes LaTeX se compilan con `pdflatex`. Los índices de Sobol se contrastan con su valor analítico en un modelo de forma producto y el PRCC con su definición por regresión de residuos. Los resultados simbólicos también se contrastan con el radio espectral numérico.
 
 ## Interfaz anterior
 
@@ -169,7 +185,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo.
+El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_supuestos_vdw.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno.
 
 ## Cita
 

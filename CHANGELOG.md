@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (2026-10-10)
+
+### Added
+- `R0Model.check_assumptions(values=None, n_samples=100, seed=0, language="en")`: checks assumptions (A1)-(A5) of van den Driessche & Watmough (2002), under which Theorem 2 makes R0 a threshold. Each assumption is reported as `"holds"`, `"fails"` or `"undecided"` with its basis: by construction (A3), symbolic proof for all positive parameters, at the given `values`, or random samples (a violation in every parameter sample is `"fails"`; a property that was not proved is `"undecided"`, with the counterexample when there is one).
+  - (A1) non-negativity of `F_i`, `V_i^+`, `V_i^-` (canonical split of `V_i` into its negative and positive terms); (A2) `V_i^-` at `x_i = 0`; (A4) `F_i` and `V_i^+` on the whole disease-free subspace `X_s`, not only at `x0`; (A5) positive stability of both `V` and `J_4` (block-triangular structure, trace and determinant, Z-matrix minors, or eigenvalues at the given values or samples).
+  - Consequences of Lemma 1: `F >= 0`, Z sign pattern of `V` (non-singular M-matrix), and the zero block `dV_i/dx_j(x0) = 0` for infected `i` and uninfected `j`.
+  - When the DFE used is not stable, the stability of the other disease-free equilibria found (`dfe_candidates`) is reported.
+- `AssumptionsReport` with `holds`, `status`, `as_dict`, `decomposition`, `to_latex(style="document" | "markdown", standalone, language="en" | "es")` (cumple / no cumple / no se pudo decidir) and Markdown display in Jupyter; `AssumptionResult`.
+- Tests with models that violate each assumption; the LaTeX reports are compiled with `pdflatex` when it is available.
+- Example notebook `examples/05_supuestos_vdw.ipynb` (with an Open in Colab badge).
+
 ## 0.2.1 (2026-10-09)
 
 ### Added

@@ -1,0 +1,110 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\begin{document}
+
+\section*{Supuestos de van den Driessche y Watmough (2002)}
+
+Compartimentos infectados ($i \le m$): $I, V$. Sin valores de los parámetros: cada supuesto se demuestra para todo parámetro positivo cuando es posible; si no, se explora con muestras aleatorias.
+
+\begin{center}
+\begin{tabular}{c p{0.34\textwidth} c p{0.3\textwidth}}
+\hline
+Supuesto & Enunciado & Resultado & Fundamento \\
+\hline
+(A1) & flujos no negativos & \textbf{cumple} & demostración simbólica para todo parámetro positivo \\
+(A2) & sin salidas de un compartimento vacío & \textbf{cumple} & demostración simbólica para todo parámetro positivo \\
+(A3) & sin nuevas infecciones en no infectados & \textbf{cumple} & por construcción \\
+(A4) & el subespacio libre de infección es invariante & \textbf{cumple} & demostración simbólica para todo parámetro positivo \\
+(A5) & el DFE es estable sin nuevas infecciones & \textbf{cumple} & demostración simbólica para todo parámetro positivo \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection*{Descomposición utilizada}
+
+$\dot x_i = \mathcal{F}_i - \mathcal{V}_i$, con $\mathcal{V}_i = \mathcal{V}_i^- - \mathcal{V}_i^+$ ($\mathcal{V}_i^+$: otras entradas; $\mathcal{V}_i^-$: salidas).
+
+\begin{align*}
+\mathcal{F}_{E} &= 0, & \mathcal{V}_{E}^+ &= \lambda, & \mathcal{V}_{E}^- &= E V \kappa + E d \\
+\mathcal{F}_{I} &= E V \kappa, & \mathcal{V}_{I}^+ &= 0, & \mathcal{V}_{I}^- &= I Th \beta + I \alpha \\
+\mathcal{F}_{V} &= 0, & \mathcal{V}_{V}^+ &= I \nu, & \mathcal{V}_{V}^- &= Th V \tau + V \mu \\
+\mathcal{F}_{Th} &= 0, & \mathcal{V}_{Th}^+ &= I Th \gamma + b, & \mathcal{V}_{Th}^- &= Th c
+\end{align*}
+
+\subsection*{(A1) flujos no negativos}
+
+Si $x \ge 0$, entonces $\mathcal{F}_i,\ \mathcal{V}_i^+,\ \mathcal{V}_i^- \ge 0$ para $i = 1,\dots,n$.
+
+Resultado: \textbf{cumple} (demostración simbólica para todo parámetro positivo).
+
+\begin{itemize}
+  \item $\mathcal{V}_i^+$ y $\mathcal{V}_i^-$ reúnen los términos negativos y positivos de $\mathcal{V}_i$; son no negativos cuando cada término tiene signo definido.
+\end{itemize}
+
+\subsection*{(A2) sin salidas de un compartimento vacío}
+
+Si $x_i = 0$, entonces $\mathcal{V}_i^- = 0$.
+
+Resultado: \textbf{cumple} (demostración simbólica para todo parámetro positivo).
+
+\begin{itemize}
+  \item $\left.\mathcal{V}_{E}^-\right\rvert_{E = 0} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{V}_{I}^-\right\rvert_{I = 0} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{V}_{V}^-\right\rvert_{V = 0} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{V}_{Th}^-\right\rvert_{Th = 0} = 0$: \textbf{cumple}
+\end{itemize}
+
+\subsection*{(A3) sin nuevas infecciones en no infectados}
+
+$\mathcal{F}_i = 0$ para $i > m$ (compartimentos no infectados).
+
+Resultado: \textbf{cumple} (por construcción).
+
+\begin{itemize}
+  \item pyR0compute define $\mathcal{F}_i$ solo para los compartimentos infectados y rechaza términos de nuevas infecciones en los no infectados.
+\end{itemize}
+
+\subsection*{(A4) el subespacio libre de infección es invariante}
+
+Si $x \in X_s$, entonces $\mathcal{F}_i(x) = 0$ y $\mathcal{V}_i^+(x) = 0$ para $i = 1,\dots,m$.
+
+Resultado: \textbf{cumple} (demostración simbólica para todo parámetro positivo).
+
+\begin{itemize}
+  \item $\left.\mathcal{F}_{I}\right\rvert_{X_s} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{V}_{I}^+\right\rvert_{X_s} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{F}_{V}\right\rvert_{X_s} = 0$: \textbf{cumple}
+  \item $\left.\mathcal{V}_{V}^+\right\rvert_{X_s} = 0$: \textbf{cumple}
+  \item $X_s = \{x \ge 0 : x_i = 0,\ i \le m\}$; los no infectados quedan libres, no fijos en $x_0$.
+\end{itemize}
+
+\subsection*{(A5) el DFE es estable sin nuevas infecciones}
+
+Con $\mathcal{F} = 0$, todos los valores propios de $Df(x_0)$ tienen parte real negativa; equivalentemente, los de $V$ y los de $J_4$ tienen parte real positiva.
+
+Resultado: \textbf{cumple} (demostración simbólica para todo parámetro positivo).
+
+\begin{itemize}
+  \item $V = \left[\begin{matrix}\frac{\alpha c + b \beta}{c} & 0\\- \nu & \frac{b \tau + c \mu}{c}\end{matrix}\right]$: \textbf{cumple}
+  \item $J_4 = -\left.\frac{\partial f_u}{\partial x_u}\right\rvert_{x_0} = \left[\begin{matrix}d & 0\\0 & c\end{matrix}\right]$: \textbf{cumple}
+  \item $V$: $\alpha + \frac{b \beta}{c} > 0$, $\frac{b \tau}{c} + \mu > 0$
+  \item $J_4$: $d > 0$, $c > 0$
+\end{itemize}
+
+\subsection*{Consecuencias (Lema 1)}
+
+\begin{itemize}
+  \item $F \ge 0$ (por entradas): \textbf{cumple}
+  \item $V$ tiene patrón de signos Z ($V_{ij} \le 0$, $i \ne j$): \textbf{cumple}
+  \item $\partial \mathcal{V}_i / \partial x_j (x_0) = 0$ para $i \le m < j$: \textbf{cumple}
+\end{itemize}
+
+Si $V$ tiene patrón Z y sus valores propios tienen parte real positiva, $V$ es una M-matriz no singular y $V^{-1} \ge 0$.
+
+\subsection*{Conclusión}
+
+Se cumplen (A1) a (A5). Por el Teorema 2, el DFE $x_0$ es localmente asintóticamente estable si $\mathcal{R}_0 < 1$ e inestable si $\mathcal{R}_0 > 1$.
+
+\end{document}
