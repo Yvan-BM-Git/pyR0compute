@@ -211,7 +211,7 @@ El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar 
 
 ## Cita
 
-Si usas pyR0compute en tu investigación, cítalo (ver `CITATION.cff`) junto con:
+Si usas pyR0compute en tu investigación, cítalo con el DOI de Zenodo (cada release de GitHub se archiva en Zenodo; ver también `CITATION.cff` o el botón *Cite this repository* de GitHub) junto con:
 
 * van den Driessche, P., & Watmough, J. (2002). Reproduction numbers and sub-threshold endemic equilibria for compartmental models of disease transmission. *Mathematical Biosciences*, 180(1-2), 29-48.
 * Diekmann, O., Heesterbeek, J. A. P., & Roberts, M. G. (2010). The construction of next-generation matrices for compartmental epidemic models. *Journal of the Royal Society Interface*, 7(47), 873-885.
