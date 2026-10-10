@@ -57,7 +57,7 @@ def _require_scipy():
     try:
         from scipy.integrate import solve_ivp
     except ImportError as exc:  # pragma: no cover - depends on the environment
-        raise ImportError('simulate() needs SciPy: pip install "pyR0compute[plot]"') from exc
+        raise ImportError("simulate() needs SciPy: pip install scipy") from exc
     return solve_ivp
 
 
@@ -65,7 +65,7 @@ def _require_matplotlib():
     try:
         import matplotlib.pyplot as plt
     except ImportError as exc:  # pragma: no cover - depends on the environment
-        raise ImportError('Plots need matplotlib: pip install "pyR0compute[plot]"') from exc
+        raise ImportError("Plots need matplotlib: pip install matplotlib") from exc
     return plt
 
 

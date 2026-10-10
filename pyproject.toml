@@ -11,7 +11,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Yvan Baldera-Moreno" }]
 requires-python = ">=3.9"
-dependencies = ["sympy>=1.12", "numpy>=1.22"]
+dependencies = ["sympy>=1.12", "numpy>=1.22", "scipy>=1.11", "matplotlib>=3.5", "pandas>=1.3"]
 keywords = [
   "basic reproduction number", "R0", "next-generation matrix", "epidemiology",
   "mathematical immunology", "compartmental models", "symbolic computation", "sympy",
@@ -29,6 +29,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# kept for compatibility: SciPy and matplotlib are now regular dependencies
 global = ["scipy>=1.11"]
 plot = ["scipy>=1.11", "matplotlib>=3.5"]
 test = ["pytest>=7", "scipy>=1.11", "matplotlib>=3.5"]

@@ -17,7 +17,7 @@ pip install pyR0compute
 
 En un notebook de Jupyter o Colab usa `%pip install pyR0compute`. La versión en desarrollo se puede instalar desde GitHub con `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
 
-Requiere Python ≥ 3.9, SymPy y NumPy. El análisis de sensibilidad global necesita además SciPy ≥ 1.11, que se instala con `pip install "pyR0compute[global]"`; las simulaciones y sus gráficos necesitan SciPy y matplotlib: `pip install "pyR0compute[plot]"`.
+Requiere Python ≥ 3.9. `pip install pyR0compute` instala también sus dependencias: SymPy, NumPy, SciPy (sensibilidad global, DFE numérico y simulaciones), matplotlib (gráficos) y pandas (tablas de resultados).
 
 ## Inicio rápido
 
@@ -162,7 +162,7 @@ El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\math
 
 ### Simulación
 
-`simulate()` integra la EDO (SciPy) y `plot()` / `plot_phase()` grafican el resultado (matplotlib): `pip install "pyR0compute[plot]"`. Los parámetros dados en `values` quedan fijos y los demás se sortean (log-uniformes en `default_range`, o en `ranges={...}`). Por defecto los compartimentos no infectados parten del DFE y los infectados de una perturbación pequeña, que es la situación que describe $R_0$.
+`simulate()` integra la EDO (SciPy) y `plot()` / `plot_phase()` grafican el resultado (matplotlib). Los parámetros dados en `values` quedan fijos y los demás se sortean (log-uniformes en `default_range`, o en `ranges={...}`). Por defecto los compartimentos no infectados parten del DFE y los infectados de una perturbación pequeña, que es la situación que describe $R_0$.
 
 ```python
 res = model.simulate((0, 200), values={"Lambda": 10, "mu": 0.1, "gamma": 0.5, "beta": 0.01})
