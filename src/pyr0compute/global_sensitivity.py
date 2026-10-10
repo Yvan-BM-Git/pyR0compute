@@ -58,7 +58,7 @@ def _scipy_stats(min_version: Tuple[int, int] = (1, 7)):
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise ImportError(
             "Global sensitivity analysis needs SciPy. Install it with "
-            "pip install 'pyR0compute[global]' (or pip install scipy)."
+            "pip install scipy."
         ) from exc
     version = tuple(int(p) for p in scipy.__version__.split(".")[:2] if p.isdigit())
     if version < min_version:  # pragma: no cover - depends on the environment
