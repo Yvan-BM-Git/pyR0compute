@@ -7,7 +7,7 @@ Escribe el modelo, indica qué compartimentos están infectados y pyR0compute ha
 [![PyPI](https://img.shields.io/pypi/v/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![Python](https://img.shields.io/pypi/pyversions/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Yvan-BM-Git/pyR0compute/blob/main/LICENSE)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/01_ejemplos.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/01_examples.ipynb)
 [![DOI](https://zenodo.org/badge/1033480469.svg)](https://doi.org/10.5281/zenodo.23298227)
 
 ## Instalación
@@ -142,7 +142,7 @@ model.latex()          # usa X^{*} cuando el DFE tiene valores compactos
 model.dfe_stability(values)   # {"eigenvalues": ..., "stable": True, "dfe": {...}}
 ```
 
-Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El notebook `examples/03_sistemas_no_lineales.ipynb` desarrolla este modelo completo.
+Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El notebook `examples/03_nonlinear_systems.ipynb` desarrolla este modelo completo.
 
 La condición (A5) de van den Driessche y Watmough exige que el DFE sea estable cuando no hay infección; sin ella $R_0$ no es un umbral. `dfe_stability()` la verifica en un punto (`values=...`) o en muestras aleatorias de parámetros, y entrega los valores propios simbólicos cuando el bloque no infectado es triangular.
 
@@ -159,7 +159,7 @@ informe.to_latex(standalone=True) # informe LaTeX compilable; "markdown" para no
 model.check_assumptions(values={...})   # decide en un punto lo que no se pudo demostrar
 ```
 
-El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ utilizada, el detalle de cada supuesto con contraejemplos cuando no se cumple, las consecuencias del Lema 1 ($F \ge 0$, $V$ con patrón de signos Z y M-matriz no singular) y, si el DFE elegido no es estable, los otros DFE encontrados que sí lo son. En Jupyter, evaluar el informe lo muestra en Markdown. El notebook `examples/05_supuestos_vdw.ipynb` presenta un modelo que cumple los cinco supuestos y modelos que violan cada uno.
+El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ utilizada, el detalle de cada supuesto con contraejemplos cuando no se cumple, las consecuencias del Lema 1 ($F \ge 0$, $V$ con patrón de signos Z y M-matriz no singular) y, si el DFE elegido no es estable, los otros DFE encontrados que sí lo son. En Jupyter, evaluar el informe lo muestra en Markdown. El notebook `examples/05_vdw_assumptions.ipynb` presenta un modelo que cumple los cinco supuestos y modelos que violan cada uno.
 
 ### Simulación
 
@@ -180,7 +180,7 @@ model.simulate(..., R0_range=(1, None))       # solo sorteos con R0 > 1
 ens.summary(); ens.to_dataframe()             # parámetros y R0 de cada simulación; datos en formato largo
 ```
 
-`plot()` acepta `variables`, `title` (`"{R0}"` se reemplaza por su valor), `titles` por panel, `xlabel`, `ylabel`, `labels`, `colors` y `linestyles` (diccionario, lista o un valor), `linewidth`, `alpha`, `legend`, `legend_kw`, `figsize`, `subplots`, `ncols`, `logy`, `logx`, `xlim`, `ylim`, `grid`, `color_by_R0`, `show_dfe`, `ax` (para comparar escenarios en los mismos ejes), `save` y `dpi`. El notebook `examples/06_simulaciones.ipynb` muestra casos con $R_0 < 1$ y $R_0 > 1$ en modelos epidemiológicos e intrahuésped.
+`plot()` acepta `variables`, `title` (`"{R0}"` se reemplaza por su valor), `titles` por panel, `xlabel`, `ylabel`, `labels`, `colors` y `linestyles` (diccionario, lista o un valor), `linewidth`, `alpha`, `legend`, `legend_kw`, `figsize`, `subplots`, `ncols`, `logy`, `logx`, `xlim`, `ylim`, `grid`, `color_by_R0`, `show_dfe`, `ax` (para comparar escenarios en los mismos ejes), `save` y `dpi`. El notebook `examples/06_simulations.ipynb` muestra casos con $R_0 < 1$ y $R_0 > 1$ en modelos epidemiológicos e intrahuésped.
 
 ### Cuándo las elecciones automáticas necesitan ayuda
 
@@ -208,7 +208,7 @@ model.calculate_R0()
 
 ## Ejemplos
 
-El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_sensibilidad_global.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_sistemas_no_lineales.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_limite_de_tiempo_dfe.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_supuestos_vdw.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno. El notebook `examples/06_simulaciones.ipynb` muestra `simulate()`: SIR con $R_0 < 1$ y $R_0 > 1$, parámetros aleatorios y fijos, conjuntos coloreados por $R_0$, plano de fase, bifurcación transcrítica, vacunación, modelos intrahuésped, el modelo con linfocitos T helper y Ross-Macdonald. El notebook `examples/07_validacion.ipynb` valida $R_0$ con 15 casos publicados: modelos epidemiológicos de van den Driessche y Watmough (2002), modelos intrahuésped de Ciupe y Heffernan (2017) y los modelos de respuesta inmune de Cuesta-Herrera et al. (2024, 2025), con descomposiciones alternativas y verificación de supuestos; la tabla se guarda en `examples/outputs/07_validacion.csv`. El notebook `examples/08_ejemplos_articulo.ipynb` reproduce los ejemplos del artículo (modelo SEIR y modelo con linfocitos T colaboradores de Cuesta-Herrera et al., 2025) y genera sus Figuras 2 y 3 en `examples/outputs/`. Las figuras de los notebooks se guardan en `examples/outputs/`.
+El notebook `examples/01_examples.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_global_sensitivity.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_nonlinear_systems.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_dfe_time_limit.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_vdw_assumptions.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno. El notebook `examples/06_simulations.ipynb` muestra `simulate()`: SIR con $R_0 < 1$ y $R_0 > 1$, parámetros aleatorios y fijos, conjuntos coloreados por $R_0$, plano de fase, bifurcación transcrítica, vacunación, modelos intrahuésped, el modelo con linfocitos T helper y Ross-Macdonald. El notebook `examples/07_validation.ipynb` valida $R_0$ con 15 casos publicados: modelos epidemiológicos de van den Driessche y Watmough (2002), modelos intrahuésped de Ciupe y Heffernan (2017) y los modelos de respuesta inmune de Cuesta-Herrera et al. (2024, 2025), con descomposiciones alternativas y verificación de supuestos; la tabla se guarda en `examples/outputs/07_validation.csv`. El notebook `examples/08_paper_examples.ipynb` reproduce los ejemplos del artículo (modelo SEIR y modelo con linfocitos T colaboradores de Cuesta-Herrera et al., 2025) y genera sus Figuras 2 y 3 en `examples/outputs/`. Los notebooks están en inglés y sus figuras se guardan en `examples/outputs/`. Las versiones en español de los notebooks están en `examples/spanish/`, con sus figuras en `examples/spanish/outputs/`.
 
 ## Cita
 

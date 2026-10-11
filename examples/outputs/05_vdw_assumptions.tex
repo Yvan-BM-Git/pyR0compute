@@ -1,0 +1,110 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2cm]{geometry}
+\begin{document}
+
+\section*{Assumptions of van den Driessche and Watmough (2002)}
+
+Infected compartments ($i \le m$): $I, V$. No parameter values given: each assumption is proved for every positive parameter value when possible, and otherwise explored with random samples.
+
+\begin{center}
+\begin{tabular}{c p{0.34\textwidth} c p{0.3\textwidth}}
+\hline
+Assumption & Statement & Result & Basis \\
+\hline
+(A1) & non-negative flows & \textbf{holds} & symbolic proof for all positive parameters \\
+(A2) & no outflow from an empty compartment & \textbf{holds} & symbolic proof for all positive parameters \\
+(A3) & no new infections in uninfected compartments & \textbf{holds} & by construction \\
+(A4) & the disease-free subspace is invariant & \textbf{holds} & symbolic proof for all positive parameters \\
+(A5) & the DFE is stable without new infections & \textbf{holds} & symbolic proof for all positive parameters \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection*{Decomposition used}
+
+$\dot x_i = \mathcal{F}_i - \mathcal{V}_i$, with $\mathcal{V}_i = \mathcal{V}_i^- - \mathcal{V}_i^+$ ($\mathcal{V}_i^+$: other inflows; $\mathcal{V}_i^-$: outflows).
+
+\begin{align*}
+\mathcal{F}_{E} &= 0, & \mathcal{V}_{E}^+ &= \lambda, & \mathcal{V}_{E}^- &= E V \kappa + E d \\
+\mathcal{F}_{I} &= E V \kappa, & \mathcal{V}_{I}^+ &= 0, & \mathcal{V}_{I}^- &= I Th \beta + I \alpha \\
+\mathcal{F}_{V} &= 0, & \mathcal{V}_{V}^+ &= I \nu, & \mathcal{V}_{V}^- &= Th V \tau + V \mu \\
+\mathcal{F}_{Th} &= 0, & \mathcal{V}_{Th}^+ &= I Th \gamma + b, & \mathcal{V}_{Th}^- &= Th c
+\end{align*}
+
+\subsection*{(A1) non-negative flows}
+
+If $x \ge 0$, then $\mathcal{F}_i,\ \mathcal{V}_i^+,\ \mathcal{V}_i^- \ge 0$ for $i = 1,\dots,n$.
+
+Result: \textbf{holds} (symbolic proof for all positive parameters).
+
+\begin{itemize}
+  \item $\mathcal{V}_i^+$ and $\mathcal{V}_i^-$ collect the negative and positive terms of $\mathcal{V}_i$; they are non-negative when every term has a definite sign.
+\end{itemize}
+
+\subsection*{(A2) no outflow from an empty compartment}
+
+If $x_i = 0$, then $\mathcal{V}_i^- = 0$.
+
+Result: \textbf{holds} (symbolic proof for all positive parameters).
+
+\begin{itemize}
+  \item $\left.\mathcal{V}_{E}^-\right\rvert_{E = 0} = 0$: \textbf{holds}
+  \item $\left.\mathcal{V}_{I}^-\right\rvert_{I = 0} = 0$: \textbf{holds}
+  \item $\left.\mathcal{V}_{V}^-\right\rvert_{V = 0} = 0$: \textbf{holds}
+  \item $\left.\mathcal{V}_{Th}^-\right\rvert_{Th = 0} = 0$: \textbf{holds}
+\end{itemize}
+
+\subsection*{(A3) no new infections in uninfected compartments}
+
+$\mathcal{F}_i = 0$ for $i > m$ (uninfected compartments).
+
+Result: \textbf{holds} (by construction).
+
+\begin{itemize}
+  \item pyR0compute defines $\mathcal{F}_i$ only for the infected compartments and rejects new-infection terms for uninfected ones.
+\end{itemize}
+
+\subsection*{(A4) the disease-free subspace is invariant}
+
+If $x \in X_s$, then $\mathcal{F}_i(x) = 0$ and $\mathcal{V}_i^+(x) = 0$ for $i = 1,\dots,m$.
+
+Result: \textbf{holds} (symbolic proof for all positive parameters).
+
+\begin{itemize}
+  \item $\left.\mathcal{F}_{I}\right\rvert_{X_s} = 0$: \textbf{holds}
+  \item $\left.\mathcal{V}_{I}^+\right\rvert_{X_s} = 0$: \textbf{holds}
+  \item $\left.\mathcal{F}_{V}\right\rvert_{X_s} = 0$: \textbf{holds}
+  \item $\left.\mathcal{V}_{V}^+\right\rvert_{X_s} = 0$: \textbf{holds}
+  \item $X_s = \{x \ge 0 : x_i = 0,\ i \le m\}$; the uninfected compartments are free, not fixed at $x_0$.
+\end{itemize}
+
+\subsection*{(A5) the DFE is stable without new infections}
+
+If $\mathcal{F}$ is set to zero, all eigenvalues of $Df(x_0)$ have negative real parts; equivalently, those of $V$ and of $J_4$ have positive real parts.
+
+Result: \textbf{holds} (symbolic proof for all positive parameters).
+
+\begin{itemize}
+  \item $V = \left[\begin{matrix}\frac{\alpha c + b \beta}{c} & 0\\- \nu & \frac{b \tau + c \mu}{c}\end{matrix}\right]$: \textbf{holds}
+  \item $J_4 = -\left.\frac{\partial f_u}{\partial x_u}\right\rvert_{x_0} = \left[\begin{matrix}d & 0\\0 & c\end{matrix}\right]$: \textbf{holds}
+  \item $V$: $\alpha + \frac{b \beta}{c} > 0$, $\frac{b \tau}{c} + \mu > 0$
+  \item $J_4$: $d > 0$, $c > 0$
+\end{itemize}
+
+\subsection*{Consequences (Lemma 1)}
+
+\begin{itemize}
+  \item $F \ge 0$ (entrywise): \textbf{holds}
+  \item $V$ has the Z sign pattern ($V_{ij} \le 0$, $i \ne j$): \textbf{holds}
+  \item $\partial \mathcal{V}_i / \partial x_j (x_0) = 0$ for $i \le m < j$: \textbf{holds}
+\end{itemize}
+
+If $V$ has the Z pattern and its eigenvalues have positive real parts, $V$ is a non-singular M-matrix and $V^{-1} \ge 0$.
+
+\subsection*{Conclusion}
+
+(A1) to (A5) hold. By Theorem 2, the DFE $x_0$ is locally asymptotically stable if $\mathcal{R}_0 < 1$ and unstable if $\mathcal{R}_0 > 1$.
+
+\end{document}
