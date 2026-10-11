@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 (2026-10-11)
 
 ### Changed
 - `README.md` is now in English; the Spanish version is kept in `README_es.md`.

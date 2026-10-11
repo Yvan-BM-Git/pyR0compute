@@ -7,7 +7,7 @@ authors:
     given-names: Yvan
     affiliation: "Departamento de Ciencias Pre-clínicas, Universidad Católica del Maule, Talca, Chile"
     orcid: "https://orcid.org/0000-0001-6029-5806"
-version: 0.3.1
+version: 0.3.2
 date-released: 2026-10-11
 license: MIT
 doi: 10.5281/zenodo.23298227
