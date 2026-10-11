@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Zenodo DOI: badge in the README and concept DOI (10.5281/zenodo.23298227) and version 0.3.1 DOI (10.5281/zenodo.23298228) in `CITATION.cff`.
+- ORCID of the author in `CITATION.cff` and `.zenodo.json`.
+
 ## 0.3.1 (2026-10-10)
 
 ### Added
