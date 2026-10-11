@@ -54,6 +54,7 @@ _BASIS_RANK = {"construction": 0, "symbolic": 1, "values": 2, "sampling": 3}
 
 
 def _t(en: str, es: str) -> Dict[str, str]:
+    """Bilingual text ``{"en": en, "es": es}`` used in the reports."""
     return {"en": en, "es": es}
 
 
@@ -95,6 +96,7 @@ SHORT = {
 # ----------------------------------------------------------------- results
 @dataclass
 class _Decision:
+    """Outcome of one check: status, basis, optional note and counterexample (``witness``)."""
     status: str
     basis: str
     note: Optional[Dict[str, str]] = None
@@ -121,13 +123,16 @@ class AssumptionResult:
 
     @property
     def holds(self) -> bool:
+        """True if the assumption holds."""
         return self.status == HOLDS
 
     def __repr__(self) -> str:
+        """Short text description."""
         return f"AssumptionResult({self.key}: {self.status}, {self.basis})"
 
 
 def _combine(key: str, items: List[_Item], notes=None) -> AssumptionResult:
+    """Combine the checks of one assumption into an AssumptionResult (the worst status wins)."""
     if not items:
         return AssumptionResult(key, HOLDS, "symbolic", [], list(notes or []))
     worst = max(items, key=lambda it: (_SEVERITY[it.decision.status], _BASIS_RANK[it.decision.basis]))
@@ -147,6 +152,7 @@ class _Checker:
     N_PAR = 40     # parameter sets for the flow checks (A1, A2, A4)
 
     def __init__(self, model, values, n_samples: int, seed: int):
+        """Store the model, parameter values or random samples, and the random generator."""
         self.m = model
         self.rng = np.random.default_rng(seed)
         self.x = list(model._x)
@@ -183,6 +189,7 @@ class _Checker:
         return real.reshape(P, X)
 
     def _witness(self, expr, p: int, k: int) -> Dict[sp.Symbol, float]:
+        """Counterexample point (state and parameters) for sample ``p``, state ``k``."""
         point = {}
         free = sp.sympify(expr).free_symbols
         for j, s in enumerate(self.x):
@@ -196,6 +203,7 @@ class _Checker:
 
     @staticmethod
     def _tol(vals: np.ndarray) -> float:
+        """Absolute tolerance relative to the largest finite value of ``vals``."""
         finite = vals[np.isfinite(vals)]
         return 1e-10 * max(1.0, float(np.max(np.abs(finite)))) if finite.size else 0.0
 
@@ -328,6 +336,11 @@ class _Checker:
         return None, ""
 
     def stable_symbolic(self, M) -> Tuple[Optional[bool], List[str]]:
+        """Decide symbolically whether all eigenvalues of ``M`` have positive real part.
+
+        The matrix is split into strongly connected blocks; returns ``(verdict,
+        texts)`` with ``verdict`` True, False or None (undecided).
+        """
         n = M.shape[0]
         if n == 0:
             return True, []
@@ -363,6 +376,7 @@ class _Checker:
         fp = sp.lambdify(args, [point[x] for x in point] or [0], "numpy")
 
         def at(pvals: Dict[sp.Symbol, float]):
+            """Stability verdict and eigenvalues at one parameter set (None if the DFE is not defined there)."""
             try:
                 star_vals = self.m._numeric_stars(pvals) if stars else {}
             except (R0ComputeError, ImportError, ValueError, ZeroDivisionError):
@@ -571,9 +585,11 @@ def _lemma1(model, chk: _Checker):
     from .model import DFESymbol
 
     def no_stars(e):
+        """True if ``e`` contains no disease-free symbols ``X^*``."""
         return not any(isinstance(s, DFESymbol) for s in sp.sympify(e).free_symbols)
 
     def symbolic_only(decision_fn, e):
+        """Apply ``decision_fn`` to ``e`` unless it depends on disease-free values without closed form."""
         if no_stars(e):
             return decision_fn(e)
         if sp.sympify(e) == 0:
@@ -582,18 +598,21 @@ def _lemma1(model, chk: _Checker):
             "depends on disease-free values without closed form", "depende de valores del DFE sin forma cerrada"))
 
     def nonneg_entry(e):
+        """Decide whether a matrix entry is non-negative."""
         e = sp.simplify(e)
         if e == 0 or e.is_nonnegative:
             return _Decision(HOLDS, "symbolic")
         return symbolic_only(chk.nonneg, e)
 
     def nonpos_entry(e):
+        """Decide whether a matrix entry is non-positive."""
         e = sp.simplify(e)
         if e == 0 or e.is_nonpositive:
             return _Decision(HOLDS, "symbolic")
         return symbolic_only(chk.nonneg, -e)
 
     def zero_entry(e):
+        """Decide whether a matrix entry is zero."""
         e = sp.simplify(e)
         if e == 0:
             return _Decision(HOLDS, "symbolic")
@@ -623,6 +642,7 @@ def _lemma1(model, chk: _Checker):
 
 
 def _fmt_complex(z: complex) -> str:
+    """Format a complex eigenvalue with four significant digits."""
     if abs(z.imag) <= 1e-12 * max(1.0, abs(z)):
         return f"{z.real:.4g}"
     return f"{z.real:.4g} {'+' if z.imag >= 0 else '-'} {abs(z.imag):.4g}i"
@@ -640,6 +660,7 @@ class AssumptionsReport:
     """
 
     def __init__(self, model, results, flows, lemma, alternatives, with_values, language):
+        """Store the model, parameter values or random samples, and the random generator."""
         self.model = model
         self.results: Dict[str, AssumptionResult] = results
         self._flows = flows
@@ -649,9 +670,11 @@ class AssumptionsReport:
         self.language = language
 
     def __getitem__(self, key: str) -> AssumptionResult:
+        """Result of one assumption, e.g. ``report["A5"]``."""
         return self.results[key.upper()]
 
     def __iter__(self):
+        """Iterate over the results of (A1) to (A5)."""
         return iter(self.results.values())
 
     @property
@@ -665,6 +688,7 @@ class AssumptionsReport:
         return {k: r.status for k, r in self.results.items()}
 
     def as_dict(self) -> Dict[str, Dict[str, str]]:
+        """``{assumption: {"status": ..., "basis": ...}}``."""
         return {k: {"status": r.status, "basis": r.basis} for k, r in self.results.items()}
 
     @property
@@ -674,6 +698,7 @@ class AssumptionsReport:
         return [(self.model._to_orig[x], o(F), o(Vp), o(Vm)) for x, F, Vp, Vm in self._flows]
 
     def __repr__(self) -> str:
+        """Short text description."""
         lines = ["van den Driessche & Watmough (2002) assumptions:"]
         for k, r in self.results.items():
             lines.append(f"  ({k}) {r.status:<9} [{BASIS_TEXT[r.basis]['en']}]  {SHORT[k]['en']}")
@@ -682,6 +707,7 @@ class AssumptionsReport:
         return "\n".join(lines)
 
     def _repr_markdown_(self) -> str:
+        """Markdown report shown by Jupyter."""
         return self.to_latex(style="markdown")
 
     # ---------------------------------------------------------------- LaTeX
@@ -711,17 +737,21 @@ class AssumptionsReport:
         o = self.model._orig
 
         def heading(text, level=2):
+            """Section heading (level 1 or 2) in Markdown or LaTeX."""
             if md:
                 return "#" * (level + 1) + " " + text
             return ("\\section*{" if level == 1 else "\\subsection*{") + text + "}"
 
         def bold(text):
+            """Bold text in the style of the report."""
             return f"**{text}**" if md else f"\\textbf{{{text}}}"
 
         def display(math):
+            """Display math in the style of the report."""
             return f"$$\n{math}\n$$" if md else f"\\[\n{math}\n\\]"
 
         def bullets(lines):
+            """Bulleted list in the style of the report."""
             if not lines:
                 return ""
             if md:
@@ -729,9 +759,11 @@ class AssumptionsReport:
             return "\\begin{itemize}\n" + "\n".join(f"  \\item {ln}" for ln in lines) + "\n\\end{itemize}"
 
         def status_word(status):
+            """Bold word for a status (holds, fails, undecided)."""
             return bold(T(STATUS_TEXT[status]))
 
         def witness_tex(w):
+            """Counterexample as LaTeX text, or an empty string."""
             if not w:
                 return ""
             parts = ",\\ ".join(f"{sp.latex(o(s))} = {v:.4g}" for s, v in
@@ -739,6 +771,7 @@ class AssumptionsReport:
             return (" (contraejemplo: $" if es else " (counterexample: $") + parts + "$)"
 
         def item_line(it):
+            """One line of the report for a single check."""
             d = it.decision
             line = f"${it.math}$: {status_word(d.status)}"
             if d.basis not in ("symbolic",):

@@ -3,9 +3,11 @@
 ## Unreleased
 
 ### Changed
+- `README.md` is now in English; the Spanish version is kept in `README_es.md`.
 - The example notebooks are now in English: `01_examples`, `02_global_sensitivity`, `03_nonlinear_systems`, `04_dfe_time_limit`, `05_vdw_assumptions`, `06_simulations`, `07_validation` and `08_paper_examples`, with English plot labels and output file names in `examples/outputs/`. The Spanish notebooks moved to `examples/spanish/` (which replaces `examples/legacy/` and also holds the former legacy notebooks), with their figures in `examples/spanish/outputs/`.
 
 ### Added
+- Docstrings (in English) for every public and private function, method and class of the package.
 - Zenodo DOI: badge in the README and concept DOI (10.5281/zenodo.23298227) and version 0.3.1 DOI (10.5281/zenodo.23298228) in `CITATION.cff`.
 - ORCID of the author in `CITATION.cff` and `.zenodo.json`.
 - Notebook `examples/07_validation.ipynb`: validation of R0 against 15 published cases (van den Driessche and Watmough 2002; Ciupe and Heffernan 2017; Cuesta-Herrera et al. 2024, 2025), including alternative decompositions and the check of assumptions (A1)-(A5). The table is saved in `examples/outputs/07_validation.csv`.

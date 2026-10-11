@@ -1,8 +1,8 @@
 # pyR0compute
 
-Cálculo simbólico del número reproductivo básico $R_0$ en modelos compartimentales de EDO mediante el método de la matriz de próxima generación (van den Driessche y Watmough, 2002).
+Symbolic computation of the basic reproduction number $R_0$ of compartmental ODE models with the next-generation matrix method (van den Driessche and Watmough, 2002).
 
-Escribe el modelo, indica qué compartimentos están infectados y pyR0compute hace el resto: todo símbolo que no sea una variable de estado se trata como parámetro, se identifican los términos de nuevas infecciones $\mathcal{F}$ y de transiciones $\mathcal{V}$, se resuelve el equilibrio libre de enfermedad (DFE, por sus siglas en inglés) y se obtiene $R_0 = \rho(FV^{-1})$ como expresión de SymPy.
+Write the model, name the infected compartments and pyR0compute does the rest: every symbol that is not a state variable is treated as a parameter, the new-infection terms $\mathcal{F}$ and transition terms $\mathcal{V}$ are identified, the disease-free equilibrium (DFE) is solved and $R_0 = \rho(FV^{-1})$ is returned as a SymPy expression.
 
 [![PyPI](https://img.shields.io/pypi/v/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![Python](https://img.shields.io/pypi/pyversions/pyR0compute)](https://pypi.org/project/pyR0compute/)
@@ -10,17 +10,19 @@ Escribe el modelo, indica qué compartimentos están infectados y pyR0compute ha
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/01_examples.ipynb)
 [![DOI](https://zenodo.org/badge/1033480469.svg)](https://doi.org/10.5281/zenodo.23298227)
 
-## Instalación
+*Versión en español: [README_es.md](README_es.md).*
+
+## Installation
 
 ```bash
 pip install pyR0compute
 ```
 
-En un notebook de Jupyter o Colab usa `%pip install pyR0compute`. La versión en desarrollo se puede instalar desde GitHub con `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
+In a Jupyter or Colab notebook use `%pip install pyR0compute`. The development version can be installed from GitHub with `pip install git+https://github.com/Yvan-BM-Git/pyR0compute`.
 
-Requiere Python ≥ 3.9. `pip install pyR0compute` instala también sus dependencias: SymPy, NumPy, SciPy (sensibilidad global, DFE numérico y simulaciones), matplotlib (gráficos) y pandas (tablas de resultados).
+Requires Python ≥ 3.9. `pip install pyR0compute` also installs its dependencies: SymPy, NumPy, SciPy (global sensitivity, numerical DFE and simulations), matplotlib (plots) and pandas (result tables).
 
-## Inicio rápido
+## Quick start
 
 ```python
 from pyr0compute import R0Model
@@ -32,18 +34,18 @@ model = R0Model("""
     dR/dt = gamma*I - mu*R
 """, infected=["E", "I"])
 
-model.parameters   # (Lambda, beta, gamma, mu, sigma)  <- detectados automáticamente
+model.parameters   # (Lambda, beta, gamma, mu, sigma)  <- detected automatically
 model.dfe          # {S: Lambda/mu, E: 0, I: 0, R: 0}
 model.R0           # Lambda*beta*sigma/(mu*(gamma + mu)*(mu + sigma))
 ```
 
-Las ecuaciones pueden escribirse en cualquier orden; no es necesario poner primero los compartimentos infectados.
+The equations can be written in any order; the infected compartments do not need to come first.
 
-### Tres formas de ingresar un modelo
+### Three ways to enter a model
 
 ```python
-# 1. Texto: una línea "dX/dt = ..." (o "X' = ...") por variable.
-#    Las líneas auxiliares como "N = S + I + R" se sustituyen.
+# 1. Text: one line "dX/dt = ..." (or "X' = ...") per variable.
+#    Auxiliary lines such as "N = S + I + R" are substituted.
 R0Model("""
     N = S + I + R
     dS/dt = Lambda - beta*S*I/N - mu*S
@@ -51,79 +53,79 @@ R0Model("""
     dR/dt = gamma*I - mu*R
 """, infected=["I"])
 
-# 2. Un diccionario {variable: lado derecho} (texto o expresiones de SymPy)
+# 2. A dictionary {variable: right-hand side} (text or SymPy expressions)
 R0Model({"S": "Lambda - beta*S*I - mu*S",
          "I": "beta*S*I - (gamma + mu)*I"}, infected=["I"])
 
-# 3. Símbolos de SymPy
+# 3. SymPy symbols
 import sympy as sp
 S, I = sp.symbols("S I")
 beta, gamma, mu, Lam = sp.symbols("beta gamma mu Lambda")
 R0Model({S: Lam - beta*S*I - mu*S, I: beta*S*I - (gamma + mu)*I}, infected=[I])
 ```
 
-Usa subíndices en los nombres para obtener un LaTeX limpio: `mu_h`, `alpha_hv` y `Delta_h` se escriben $\mu_h$, $\alpha_{hv}$ y $\Delta_h$. Los nombres que son especiales en SymPy (`I`, `S`, `E`, `N`, `beta`, `gamma`, `Lambda`, incluso `lambda`) son símbolos comunes dentro de los modelos en texto, y `^` indica potencia.
+Use subscripts in the names to get clean LaTeX: `mu_h`, `alpha_hv` and `Delta_h` are written $\mu_h$, $\alpha_{hv}$ and $\Delta_h$. Names that are special in SymPy (`I`, `S`, `E`, `N`, `beta`, `gamma`, `Lambda`, even `lambda`) are ordinary symbols inside text models, and `^` means power.
 
-### Qué se obtiene
+### What you get
 
-| Atributo / método | Contenido |
+| Attribute / method | Content |
 |---|---|
-| `R0` | Número reproductivo básico (radio espectral de $FV^{-1}$) |
-| `parameters` | Parámetros detectados automáticamente |
-| `new_infections`, `transitions` | Términos $\mathcal{F}_i$ y $\mathcal{V}_i$ de cada compartimento infectado |
-| `dfe`, `dfe_candidates` | Equilibrio libre de enfermedad utilizado, y todos los equilibrios no negativos encontrados |
-| `F`, `V`, `K` | Jacobianas en el DFE y matriz de próxima generación $K = FV^{-1}$ |
-| `next_generation_matrix_small` | $K$ restringida a los compartimentos que reciben nuevas infecciones |
-| `eigenvalues` | Valores propios de $K$ |
-| `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ y el DFE escritos con los valores $X^*$ que no tienen una forma cerrada corta, y sus definiciones en el orden en que se resuelven (ver *Sistemas con DFE no lineal*) |
-| `R0_numeric(values)`, `dfe_numeric(values)` | Radio espectral y DFE numéricos (para modelos grandes, o con un DFE sin forma cerrada) |
-| `dfe_blocks`, `dfe_is_implicit` | Cómo se resolvió cada bloque del DFE (forma cerrada, sin forma cerrada o límite de tiempo `dfe_timeout`) y cuánto tardó |
-| `simulate(t_span, values=None, initial=None, n_runs=1, ...)` | Simulación numérica de la EDO con parámetros fijos o aleatorios y gráficos editables (ver *Simulación*) |
-| `check_assumptions(values=None, language="en")` | Verifica los supuestos (A1)-(A5) de van den Driessche y Watmough (2002) y entrega un informe en LaTeX (ver *Supuestos de van den Driessche y Watmough*) |
-| `dfe_stability(values=None)` | Condición (A5) de van den Driessche y Watmough: estabilidad del DFE en ausencia de infección |
-| `sensitivity_indices(values=None)` | Índices de sensibilidad normalizados $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ (locales) |
-| `prcc(distributions, n, ...)` | Sensibilidad global por muestreo de hipercubo latino y coeficientes de correlación parcial de rangos (LHS-PRCC) |
-| `sobol_indices(distributions, n, ...)` | Índices de Sobol de primer orden $S_1$ y totales $S_T$, con intervalos de confianza bootstrap |
-| `report()` | Descripción paso a paso de todo el cálculo |
-| `report_latex(style, standalone, mat_str)` | El mismo informe en LaTeX (`"document"`, compilable con `standalone=True`) o en Markdown para notebooks (`"markdown"`) |
-| `latex()` | Código LaTeX de $R_0$ |
+| `R0` | Basic reproduction number (spectral radius of $FV^{-1}$) |
+| `parameters` | Automatically detected parameters |
+| `new_infections`, `transitions` | Terms $\mathcal{F}_i$ and $\mathcal{V}_i$ of each infected compartment |
+| `dfe`, `dfe_candidates` | Disease-free equilibrium used, and all non-negative equilibria found |
+| `F`, `V`, `K` | Jacobians at the DFE and next-generation matrix $K = FV^{-1}$ |
+| `next_generation_matrix_small` | $K$ restricted to the compartments that receive new infections |
+| `eigenvalues` | Eigenvalues of $K$ |
+| `R0_compact`, `dfe_compact`, `dfe_definitions` | $R_0$ and the DFE written with the values $X^*$ that have no short closed form, and their definitions in solving order (see *Systems with a nonlinear DFE*) |
+| `R0_numeric(values)`, `dfe_numeric(values)` | Numerical spectral radius and DFE (for large models, or a DFE without closed form) |
+| `dfe_blocks`, `dfe_is_implicit` | How each block of the DFE was solved (closed form, no closed form or `dfe_timeout` time limit) and how long it took |
+| `simulate(t_span, values=None, initial=None, n_runs=1, ...)` | Numerical simulation of the ODE with fixed or random parameters and editable plots (see *Simulation*) |
+| `check_assumptions(values=None, language="en")` | Checks assumptions (A1)-(A5) of van den Driessche and Watmough (2002) and returns a LaTeX report (see *Assumptions of van den Driessche and Watmough*) |
+| `dfe_stability(values=None)` | Condition (A5) of van den Driessche and Watmough: stability of the DFE in the absence of infection |
+| `sensitivity_indices(values=None)` | Normalized (local) sensitivity indices $\Upsilon_p = \frac{\partial R_0}{\partial p}\frac{p}{R_0}$ |
+| `prcc(distributions, n, ...)` | Global sensitivity by Latin hypercube sampling and partial rank correlation coefficients (LHS-PRCC) |
+| `sobol_indices(distributions, n, ...)` | First-order $S_1$ and total $S_T$ Sobol indices, with bootstrap confidence intervals |
+| `report()` | Step-by-step description of the whole computation |
+| `report_latex(style, standalone, mat_str)` | The same report in LaTeX (`"document"`, compilable with `standalone=True`) or in Markdown for notebooks (`"markdown"`) |
+| `latex()` | LaTeX code of $R_0$ |
 
-### Sensibilidad global
+### Global sensitivity
 
-El índice $\Upsilon_p$ es local: depende del punto en que se evalúa y no recoge la incertidumbre de los parámetros ni sus interacciones. `prcc` y `sobol_indices` recorren todo el espacio de parámetros. Como $R_0$ está en forma cerrada, se evalúa vectorizado con NumPy y $10^5$ evaluaciones toman segundos; si los valores propios no tienen forma cerrada, se usa el radio espectral numérico de $K$.
+The index $\Upsilon_p$ is local: it depends on the point where it is evaluated and captures neither parameter uncertainty nor interactions. `prcc` and `sobol_indices` explore the whole parameter space. Since $R_0$ is in closed form, it is evaluated vectorized with NumPy and $10^5$ evaluations take seconds; if the eigenvalues have no closed form, the numerical spectral radius of $K$ is used.
 
 ```python
 dists = {
-    "beta":  ("loguniform", 1e-3, 4e-3),   # log p uniforme
+    "beta":  ("loguniform", 1e-3, 4e-3),   # log p uniform
     "mu":    ("truncnormal", 0.02, 0.005, 0.005, 0.05),
-    "gamma": (0.05, 0.2),                  # uniforme
+    "gamma": (0.05, 0.2),                  # uniform
 }
 res = model.prcc(dists, fixed={"Lambda": 10, "sigma": 0.2}, n=2000, seed=1)
 res = model.prcc(baseline={"Lambda": 10, "beta": 0.002, "mu": 0.02, "sigma": 0.2, "gamma": 0.1},
-                 spread=0.3, n=2000, seed=1)       # todos uniformes en ±30 %
+                 spread=0.3, n=2000, seed=1)       # all uniform within ±30 %
 sob = model.sobol_indices(dists, fixed={"Lambda": 10, "sigma": 0.2}, n=4096, seed=1)
 
-res.to_dataframe()           # tabla ordenada por influencia (requiere pandas)
-res.to_latex()               # tabla LaTeX ("markdown" para notebooks)
-sob.plot()                   # S1 y ST con intervalos (requiere matplotlib)
+res.to_dataframe()           # table sorted by influence (requires pandas)
+res.to_latex()               # LaTeX table ("markdown" for notebooks)
+sob.plot()                   # S1 and ST with intervals (requires matplotlib)
 ```
 
-* **LHS-PRCC** (Marino et al., 2008) mide la fuerza y el signo de una relación **monótona**. La librería verifica la monotonía con el signo de $\partial R_0/\partial p$ en cada muestra y advierte si no se cumple.
-* **Sobol** (Saltelli et al., 2010) descompone la varianza de $R_0$; $S_T - S_1$ cuantifica las interacciones. Usa $n \cdot (k + 2)$ evaluaciones, con $n$ potencia de 2, y supone parámetros independientes.
-* Con `log_output=True` se analiza $\log R_0$. Si $R_0 = c\prod p_i^{a_i}$ y los parámetros son log-uniformes e independientes, $S_{1,i} = S_{T,i} = a_i^2\,\mathrm{Var}(\log p_i) / \sum_j a_j^2\,\mathrm{Var}(\log p_j)$, lo que conecta el índice local $\Upsilon_{p_i} = a_i$ con el global. Este resultado se usa como prueba de validación.
+* **LHS-PRCC** (Marino et al., 2008) measures the strength and sign of a **monotone** relation. The library checks monotonicity with the sign of $\partial R_0/\partial p$ in each sample and warns when it does not hold.
+* **Sobol** (Saltelli et al., 2010) decomposes the variance of $R_0$; $S_T - S_1$ quantifies interactions. It uses $n \cdot (k + 2)$ evaluations, with $n$ a power of 2, and assumes independent parameters.
+* With `log_output=True`, $\log R_0$ is analysed. If $R_0 = c\prod p_i^{a_i}$ and the parameters are independent and log-uniform, $S_{1,i} = S_{T,i} = a_i^2\,\mathrm{Var}(\log p_i) / \sum_j a_j^2\,\mathrm{Var}(\log p_j)$, which links the local index $\Upsilon_{p_i} = a_i$ with the global one. This result is used as a validation test.
 
-Distribuciones: `(low, high)` o `("uniform", low, high)`, `("loguniform", low, high)`, `("normal", media, de)`, `("truncnormal", media, de, low, high)`, `("triangular", low, moda, high)` o cualquier distribución congelada de `scipy.stats`.
+Distributions: `(low, high)` or `("uniform", low, high)`, `("loguniform", low, high)`, `("normal", mean, sd)`, `("truncnormal", mean, sd, low, high)`, `("triangular", low, mode, high)` or any frozen `scipy.stats` distribution.
 
-### Sistemas con DFE no lineal
+### Systems with a nonlinear DFE
 
-En modelos intrahuésped con respuesta inmune, el equilibrio libre de infección puede ser un sistema no lineal acoplado (por ejemplo, linfocitos T helper $H$ y reguladores $R$ que se regulan mutuamente, y células $C$, $B$ activadas por ambos). Resolverlo de una vez con `sympy.solve` puede no terminar. La librería:
+In within-host models with an immune response, the disease-free equilibrium can be a coupled nonlinear system (for example, helper $H$ and regulatory $R$ T lymphocytes that regulate each other, and cells $C$, $B$ activated by both). Solving it at once with `sympy.solve` may never finish. The library:
 
-1. Con los compartimentos infectados en cero, separa las ecuaciones de los no infectados en las componentes fuertemente conexas de su grafo de dependencias y las resuelve en orden topológico, por ejemplo $[E] \to [H, R] \to [C] \to [B]$.
-2. Los valores ya resueltos entran a los bloques siguientes como símbolos $X^*$, no como su expresión explícita. Los valores cortos y sin radicales (como $E^* = g_E/d_E$) se escriben completos.
-3. Las Jacobianas $F$ y $V$ se evalúan en ese DFE compacto, de modo que $R_0$ se simplifica cuando todavía es pequeño. `model.R0_compact` lo entrega en esa forma y `model.R0` con los valores explícitos sustituidos (sin simplificar).
-4. Un bloque sin forma cerrada (por ejemplo la raíz de una quíntica) queda implícito: `dfe_numeric` y `R0_numeric` lo resuelven numéricamente (requiere SciPy).
-5. Cada bloque acoplado o de grado mayor que 2 se resuelve en un proceso aparte con un límite de tiempo, `dfe_timeout` (20 s por defecto). Si SymPy no termina a tiempo, el proceso se detiene, el bloque queda implícito y se muestra un aviso: el modelo se construye igual y $R_0$ se entrega en forma compacta y numérica. `model.dfe_blocks` informa cómo se resolvió cada bloque y cuánto tardó; `dfe_timeout=None` quita el límite.
-6. La sensibilidad global evalúa $R_0$ en cadena ($X^*$ en orden y luego $R_0$), con derivadas por regla de la cadena, en lugar de la expresión explícita.
+1. With the infected compartments at zero, splits the equations of the uninfected compartments into the strongly connected components of their dependency graph and solves them in topological order, for example $[E] \to [H, R] \to [C] \to [B]$.
+2. Values already solved enter the following blocks as symbols $X^*$, not as their explicit expressions. Short values without radicals (such as $E^* = g_E/d_E$) are written out in full.
+3. The Jacobians $F$ and $V$ are evaluated at this compact DFE, so $R_0$ is simplified while it is still small. `model.R0_compact` returns it in that form and `model.R0` with the explicit values substituted (without simplification).
+4. A block without closed form (for example the root of a quintic) stays implicit: `dfe_numeric` and `R0_numeric` solve it numerically (requires SciPy).
+5. Each coupled block, or block of degree greater than 2, is solved in a separate process with a time limit, `dfe_timeout` (20 s by default). If SymPy does not finish in time, the process is stopped, the block stays implicit and a warning is shown: the model is still built and $R_0$ is returned in compact and numerical form. `model.dfe_blocks` reports how each block was solved and how long it took; `dfe_timeout=None` removes the limit.
+6. Global sensitivity evaluates $R_0$ as a chain ($X^*$ in order and then $R_0$), with derivatives by the chain rule, instead of the explicit expression.
 
 ```python
 model = R0Model('''
@@ -138,67 +140,69 @@ model = R0Model('''
 
 model.R0_compact       # g_E*nu*tau_E*(B_star + z_BV)*(C_star + z_CI)/(d_E*z_VE*(...)*(...))
 model.dfe_definitions  # {H_star: ..., R_star: ..., C_star: ..., B_star: ...}
-model.latex()          # usa X^{*} cuando el DFE tiene valores compactos
+model.latex()          # uses X^{*} when the DFE has compact values
 model.dfe_stability(values)   # {"eigenvalues": ..., "stable": True, "dfe": {...}}
 ```
 
-Los símbolos $X^*$ se llaman `X_star` en texto (para que `S_star*beta` no se lea como potencia) y se escriben $X^{*}$ en LaTeX. El notebook `examples/03_nonlinear_systems.ipynb` desarrolla este modelo completo.
+The symbols $X^*$ are called `X_star` in text (so that `S_star*beta` is not read as a power) and are written $X^{*}$ in LaTeX. The notebook `examples/03_nonlinear_systems.ipynb` develops this model in full.
 
-La condición (A5) de van den Driessche y Watmough exige que el DFE sea estable cuando no hay infección; sin ella $R_0$ no es un umbral. `dfe_stability()` la verifica en un punto (`values=...`) o en muestras aleatorias de parámetros, y entrega los valores propios simbólicos cuando el bloque no infectado es triangular.
+Condition (A5) of van den Driessche and Watmough requires the DFE to be stable in the absence of infection; without it $R_0$ is not a threshold. `dfe_stability()` checks it at a point (`values=...`) or on random parameter samples, and returns the symbolic eigenvalues when the uninfected block is triangular.
 
-### Supuestos de van den Driessche y Watmough
+### Assumptions of van den Driessche and Watmough
 
-El Teorema 2 de van den Driessche y Watmough (2002) garantiza que $R_0 = \rho(FV^{-1})$ es un umbral (el DFE es localmente asintóticamente estable si $R_0 < 1$ e inestable si $R_0 > 1$) solo si se cumplen los supuestos (A1)-(A5): flujos no negativos, sin salidas de un compartimento vacío, sin nuevas infecciones en los no infectados, subespacio libre de infección invariante, y DFE estable en ausencia de nuevas infecciones. `check_assumptions()` decide cada uno como *cumple*, *no cumple* o *no se pudo decidir*, con su fundamento: por construcción, demostración simbólica para todo parámetro positivo, en los valores dados con `values=`, o muestras aleatorias (una violación en todas las muestras es *no cumple*; un supuesto que no se pudo demostrar es *no se pudo decidir*).
+Theorem 2 of van den Driessche and Watmough (2002) guarantees that $R_0 = \rho(FV^{-1})$ is a threshold (the DFE is locally asymptotically stable if $R_0 < 1$ and unstable if $R_0 > 1$) only if assumptions (A1)-(A5) hold: non-negative flows, no outflow from an empty compartment, no new infections in uninfected compartments, invariant infection-free subspace, and a DFE that is stable in the absence of new infections. `check_assumptions()` decides each one as *holds*, *fails* or *undecided*, with its basis: by construction, symbolic proof for every positive parameter, at the values given with `values=`, or random samples (a violation in every sample is *fails*; an assumption that could not be proved is *undecided*).
 
 ```python
-informe = model.check_assumptions(language="es")   # "en" por defecto
-informe.holds                     # True si se cumplen los cinco
-informe.status                    # {"A1": "holds", ..., "A5": "undecided"}
-informe["A5"].basis               # "symbolic", "values", "sampling" o "construction"
-informe.to_latex(standalone=True) # informe LaTeX compilable; "markdown" para notebooks
-model.check_assumptions(values={...})   # decide en un punto lo que no se pudo demostrar
+report = model.check_assumptions()      # language="es" for Spanish
+report.holds                     # True if the five hold
+report.status                    # {"A1": "holds", ..., "A5": "undecided"}
+report["A5"].basis               # "symbolic", "values", "sampling" or "construction"
+report.to_latex(standalone=True) # compilable LaTeX report; "markdown" for notebooks
+model.check_assumptions(values={...})   # decides at a point what could not be proved
 ```
 
-El informe incluye la descomposición $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ utilizada, el detalle de cada supuesto con contraejemplos cuando no se cumple, las consecuencias del Lema 1 ($F \ge 0$, $V$ con patrón de signos Z y M-matriz no singular) y, si el DFE elegido no es estable, los otros DFE encontrados que sí lo son. En Jupyter, evaluar el informe lo muestra en Markdown. El notebook `examples/05_vdw_assumptions.ipynb` presenta un modelo que cumple los cinco supuestos y modelos que violan cada uno.
+The report includes the decomposition $\mathcal{F}_i$, $\mathcal{V}_i^+$, $\mathcal{V}_i^-$ used, the details of each assumption with counterexamples when it fails, the consequences of Lemma 1 ($F \ge 0$, $V$ with Z sign pattern and a nonsingular M-matrix) and, if the chosen DFE is not stable, the other DFEs found that are. In Jupyter, evaluating the report shows it in Markdown. The notebook `examples/05_vdw_assumptions.ipynb` presents a model that satisfies the five assumptions and models that violate each one.
 
-### Simulación
+### Simulation
 
-`simulate()` integra la EDO (SciPy) y `plot()` / `plot_phase()` grafican el resultado (matplotlib). Los parámetros dados en `values` quedan fijos y los demás se sortean (log-uniformes en `default_range`, o en `ranges={...}`). Por defecto los compartimentos no infectados parten del DFE y los infectados de una perturbación pequeña, que es la situación que describe $R_0$.
+`simulate()` integrates the ODE (SciPy) and `plot()` / `plot_phase()` plot the result (matplotlib). The parameters given in `values` are fixed and the others are drawn at random (log-uniform in `default_range`, or in `ranges={...}`). By default the uninfected compartments start at the DFE and the infected ones at a small perturbation, which is the situation described by $R_0$.
 
 ```python
 res = model.simulate((0, 200), values={"Lambda": 10, "mu": 0.1, "gamma": 0.5, "beta": 0.01})
-res.R0, res.final()                          # R0 de la simulación y estado final
-res.plot(["S", "I"], title="SIR con R0 = {R0}", xlabel="días", labels={"I": "infectados"},
+res.R0, res.final()                          # R0 of the simulation and final state
+res.plot(["S", "I"], title="SIR with R0 = {R0}", xlabel="days", labels={"I": "infected"},
          colors={"I": "#e34948"}, linestyles={"I": "--"}, logy=True, figsize=(7, 3.5),
          show_dfe=True, save="outputs/sir.png")
 
 ens = model.simulate((0, 200), values={"Lambda": 10, "mu": 0.1, "gamma": 0.5},
-                     ranges={"beta": (0.001, 0.02)}, n_runs=40, seed=1)   # beta aleatorio
-ens.plot(["S", "I"], subplots=True)          # cada simulación coloreada por R0 < 1 o R0 > 1
-ens.plot_phase("S", "I")                      # plano de fase con el DFE
-model.simulate(..., R0_range=(1, None))       # solo sorteos con R0 > 1
-ens.summary(); ens.to_dataframe()             # parámetros y R0 de cada simulación; datos en formato largo
+                     ranges={"beta": (0.001, 0.02)}, n_runs=40, seed=1)   # random beta
+ens.plot(["S", "I"], subplots=True)          # each simulation colored by R0 < 1 or R0 > 1
+ens.plot_phase("S", "I")                      # phase plane with the DFE
+model.simulate(..., R0_range=(1, None))       # only draws with R0 > 1
+ens.summary(); ens.to_dataframe()             # parameters and R0 of each simulation; long-format data
 ```
 
-`plot()` acepta `variables`, `title` (`"{R0}"` se reemplaza por su valor), `titles` por panel, `xlabel`, `ylabel`, `labels`, `colors` y `linestyles` (diccionario, lista o un valor), `linewidth`, `alpha`, `legend`, `legend_kw`, `figsize`, `subplots`, `ncols`, `logy`, `logx`, `xlim`, `ylim`, `grid`, `color_by_R0`, `show_dfe`, `ax` (para comparar escenarios en los mismos ejes), `save` y `dpi`. El notebook `examples/06_simulations.ipynb` muestra casos con $R_0 < 1$ y $R_0 > 1$ en modelos epidemiológicos e intrahuésped.
+`plot()` accepts `variables`, `title` (`"{R0}"` is replaced by its value), `titles` per panel, `xlabel`, `ylabel`, `labels`, `colors` and `linestyles` (dictionary, list or a single value), `linewidth`, `alpha`, `legend`, `legend_kw`, `figsize`, `subplots`, `ncols`, `logy`, `logx`, `xlim`, `ylim`, `grid`, `color_by_R0`, `show_dfe`, `ax` (to compare scenarios on the same axes), `save` and `dpi`. The notebook `examples/06_simulations.ipynb` shows cases with $R_0 < 1$ and $R_0 > 1$ in epidemiological and within-host models.
 
-### Cuándo las elecciones automáticas necesitan ayuda
+### When the automatic choices need help
 
-* **Poblaciones cerradas** (sin nacimientos), por ejemplo el SIR clásico: el DFE no es único, así que debes indicarlo con `dfe={"S": "N"}`. El mensaje de error señala qué valor falta.
-* **Varios DFE** (por ejemplo, poblaciones de vectores con crecimiento logístico): se usa el que tiene más compartimentos distintos de cero y se muestra una advertencia. Puedes elegir otro con `dfe={...}`; todos están en `model.dfe_candidates`.
-* **Descomposiciones personalizadas**: la separación $\mathcal{F}$/$\mathcal{V}$ no es única. Puedes reemplazar la automática con `new_infections={"E": "beta*S*I/N"}`.
+* **Closed populations** (no births), for example the classical SIR model: the DFE is not unique, so you must give it with `dfe={"S": "N"}`. The error message states which value is missing.
+* **Several DFEs** (for example, vector populations with logistic growth): the one with the most nonzero compartments is used and a warning is shown. You can choose another one with `dfe={...}`; all of them are in `model.dfe_candidates`.
+* **Custom decompositions**: the $\mathcal{F}$/$\mathcal{V}$ split is not unique. You can replace the automatic one with `new_infections={"E": "beta*S*I/N"}`.
 
-### Cómo se detectan las nuevas infecciones
+### How new infections are detected
 
-En la ecuación de un compartimento infectado, un término positivo es una nueva infección cuando involucra un compartimento infectado y además (i) se pierde desde un compartimento no infectado (una transferencia como $S \to E$), o (ii) involucra un compartimento no infectado y no es una transferencia entre compartimentos infectados. La progresión ($E \to I$), la falla del tratamiento, la superinfección entre cepas, las muertes y las recuperaciones van a $\mathcal{V}$. `model.report()` muestra la clasificación de cada término y su justificación.
+In the equation of an infected compartment, a positive term is a new infection when it involves an infected compartment and also (i) is lost from an uninfected compartment (a transfer such as $S \to E$), or (ii) involves an uninfected compartment and is not a transfer between infected compartments. Progression ($E \to I$), treatment failure, superinfection between strains, deaths and recoveries go to $\mathcal{V}$. `model.report()` shows the classification of each term and its justification.
 
-## Validación
+## Validation
 
-El conjunto de pruebas (`pytest`) reproduce resultados conocidos: SIR (con y sin dinámica vital, con acción de masas y con incidencia dependiente de la frecuencia), SEIR, un modelo con vacunación, Ross-Macdonald, un modelo huésped-vector SEIR/SEI con transmisión humano-humano y vectores logísticos, el modelo con tratamiento de van den Driessche y Watmough (2002, §4.1), modelos intrahuésped de células blanco, células infectadas y virus, un modelo de dos cepas con superinfección, el modelo con linfocitos T helper de Cuesta-Herrera et al. (2025, Ec. 2.4 y valores de la Figura 3) y un modelo inmune de 7 ecuaciones con DFE no lineal, cuyo DFE y $R_0$ se contrastan con la integración numérica del sistema y cuyo umbral se contrasta con la estabilidad del DFE del sistema completo. `check_assumptions()` se prueba con modelos que cumplen los cinco supuestos y con modelos que violan cada uno: nuevas infecciones negativas (A1), cosecha constante (A2), asignación de nuevas infecciones a un no infectado (A3, rechazada por construcción), recaída desde un compartimento declarado no infectado (A4), y un DFE inestable por efecto Allee o una matriz $V$ que no es M-matriz (A5); los informes LaTeX se compilan con `pdflatex`. Los índices de Sobol se contrastan con su valor analítico en un modelo de forma producto y el PRCC con su definición por regresión de residuos. Los resultados simbólicos también se contrastan con el radio espectral numérico.
+The test suite (`pytest`) reproduces known results: SIR (with and without vital dynamics, with mass action and with frequency-dependent incidence), SEIR, a vaccination model, Ross-Macdonald, a host-vector SEIR/SEI model with human-to-human transmission and logistic vectors, the treatment model of van den Driessche and Watmough (2002, §4.1), within-host models of target cells, infected cells and virus, a two-strain model with superinfection, the helper T lymphocyte model of Cuesta-Herrera et al. (2025, Eq. 2.4 and the values of Figure 3) and a 7-equation immune model with a nonlinear DFE, whose DFE and $R_0$ are checked against numerical integration of the system and whose threshold is checked against the stability of the DFE of the full system. `check_assumptions()` is tested with models that satisfy the five assumptions and with models that violate each one: negative new infections (A1), constant harvest (A2), new infections assigned to an uninfected compartment (A3, rejected by construction), relapse from a compartment declared uninfected (A4), and a DFE made unstable by an Allee effect or a matrix $V$ that is not an M-matrix (A5); the LaTeX reports are compiled with `pdflatex`. The Sobol indices are checked against their analytical value in a product-form model and the PRCC against its definition by regression of residuals. The symbolic results are also checked against the numerical spectral radius.
 
-## Interfaz anterior
+The notebook `examples/07_validation.ipynb` validates $R_0$ against 15 published cases (see *Examples*).
 
-El código escrito para el notebook original sigue funcionando:
+## Previous interface
+
+Code written for the original notebook still works:
 
 ```python
 from pyr0compute import GeneralEpidemiologicalModel
@@ -206,26 +210,37 @@ model = GeneralEpidemiologicalModel(variables, parameters, equations, infected_i
 model.calculate_R0()
 ```
 
-## Ejemplos
+## Examples
 
-El notebook `examples/01_examples.ipynb` contiene ejemplos listos para ejecutar en Google Colab: SEIR, SIR, Ross-Macdonald, un modelo huésped-vector, un modelo intrahuésped, el modelo con tratamiento de van den Driessche y Watmough, y dos cepas con superinfección. El notebook `examples/02_global_sensitivity.ipynb` muestra el análisis de sensibilidad global (LHS-PRCC y Sobol) y su relación con el índice local. El notebook `examples/03_nonlinear_systems.ipynb` muestra el cálculo de $R_0$ en sistemas con DFE no lineal: el modelo de Cuesta-Herrera et al. (2025), un modelo inmune de 7 ecuaciones y un DFE sin forma cerrada. El notebook `examples/04_dfe_time_limit.ipynb` muestra el límite de tiempo `dfe_timeout` con un modelo cuyo lazo de regulación inmune (interferón, células NK y macrófagos) no tiene solución simbólica a tiempo. El notebook `examples/05_vdw_assumptions.ipynb` muestra `check_assumptions()` con un modelo que cumple los supuestos (A1)-(A5) y con modelos que violan cada uno. El notebook `examples/06_simulations.ipynb` muestra `simulate()`: SIR con $R_0 < 1$ y $R_0 > 1$, parámetros aleatorios y fijos, conjuntos coloreados por $R_0$, plano de fase, bifurcación transcrítica, vacunación, modelos intrahuésped, el modelo con linfocitos T helper y Ross-Macdonald. El notebook `examples/07_validation.ipynb` valida $R_0$ con 15 casos publicados: modelos epidemiológicos de van den Driessche y Watmough (2002), modelos intrahuésped de Ciupe y Heffernan (2017) y los modelos de respuesta inmune de Cuesta-Herrera et al. (2024, 2025), con descomposiciones alternativas y verificación de supuestos; la tabla se guarda en `examples/outputs/07_validation.csv`. El notebook `examples/08_paper_examples.ipynb` reproduce los ejemplos del artículo (modelo SEIR y modelo con linfocitos T colaboradores de Cuesta-Herrera et al., 2025) y genera sus Figuras 2 y 3 en `examples/outputs/`. Los notebooks están en inglés y sus figuras se guardan en `examples/outputs/`. Las versiones en español de los notebooks están en `examples/spanish/`, con sus figuras en `examples/spanish/outputs/`.
+| Notebook | Content |
+|---|---|
+| [`01_examples.ipynb`](examples/01_examples.ipynb) | SEIR, SIR, Ross-Macdonald, a host-vector model, a within-host model, the treatment model of van den Driessche and Watmough, and two strains with superinfection |
+| [`02_global_sensitivity.ipynb`](examples/02_global_sensitivity.ipynb) | Global sensitivity (LHS-PRCC and Sobol) and its relation with the local index |
+| [`03_nonlinear_systems.ipynb`](examples/03_nonlinear_systems.ipynb) | $R_0$ in systems with a nonlinear DFE: the model of Cuesta-Herrera et al. (2025), a 7-equation immune model and a DFE without closed form |
+| [`04_dfe_time_limit.ipynb`](examples/04_dfe_time_limit.ipynb) | The `dfe_timeout` time limit, with an immune regulation loop (interferon, NK cells and macrophages) without a timely symbolic solution |
+| [`05_vdw_assumptions.ipynb`](examples/05_vdw_assumptions.ipynb) | `check_assumptions()` with a model that satisfies (A1)-(A5) and models that violate each one |
+| [`06_simulations.ipynb`](examples/06_simulations.ipynb) | `simulate()`: SIR with $R_0 < 1$ and $R_0 > 1$, random and fixed parameters, ensembles colored by $R_0$, phase plane, transcritical bifurcation, vaccination, within-host models, the T-helper model and Ross-Macdonald |
+| [`07_validation.ipynb`](examples/07_validation.ipynb) | Validation of $R_0$ against 15 published cases: van den Driessche and Watmough (2002), Ciupe and Heffernan (2017) and Cuesta-Herrera et al. (2024, 2025); the table is saved in `examples/outputs/07_validation.csv` |
+| [`08_paper_examples.ipynb`](examples/08_paper_examples.ipynb) | The usage examples of the paper (SEIR and T-helper models) and its Figures 2 and 3 |
 
-## Cita
+All notebooks run in Google Colab and save their figures in `examples/outputs/`. The Spanish versions are in `examples/spanish/`, with their figures in `examples/spanish/outputs/`.
 
-Si usas pyR0compute en tu investigación, cítalo con su DOI de Zenodo, que reúne todas las versiones y resuelve a la más reciente:
+## Citation
+
+If you use pyR0compute in your research, cite it with its Zenodo DOI, which gathers all versions and resolves to the latest one:
 
 > Baldera-Moreno, Y. *pyR0compute: A Python library for automated symbolic computation of the basic reproduction number via the next-generation matrix*. Zenodo. https://doi.org/10.5281/zenodo.23298227
 
-Cada release de GitHub se archiva en Zenodo con su propio DOI (la versión 0.3.1 es https://doi.org/10.5281/zenodo.23298228). El archivo `CITATION.cff` y el botón *Cite this repository* de GitHub dan la cita en APA y BibTeX. Cita también:
+Each GitHub release is archived in Zenodo with its own DOI (version 0.3.1 is https://doi.org/10.5281/zenodo.23298228). The `CITATION.cff` file and GitHub's *Cite this repository* button give the citation in APA and BibTeX. Please also cite:
 
 * van den Driessche, P., & Watmough, J. (2002). Reproduction numbers and sub-threshold endemic equilibria for compartmental models of disease transmission. *Mathematical Biosciences*, 180(1-2), 29-48.
 * Diekmann, O., Heesterbeek, J. A. P., & Roberts, M. G. (2010). The construction of next-generation matrices for compartmental epidemic models. *Journal of the Royal Society Interface*, 7(47), 873-885.
 
-Para el análisis de sensibilidad global:
+For global sensitivity analysis:
 
 * Marino, S., Hogue, I. B., Ray, C. J., & Kirschner, D. E. (2008). A methodology for performing global uncertainty and sensitivity analysis in systems biology. *Journal of Theoretical Biology*, 254(1), 178-196.
 * Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., & Tarantola, S. (2010). Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index. *Computer Physics Communications*, 181(2), 259-270.
 
-## Licencia
+## License
 
-MIT, ver `LICENSE`.
+MIT, see `LICENSE`.
