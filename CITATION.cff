@@ -5,7 +5,7 @@ title: "pyR0compute: A Python library for automated symbolic computation of the 
 authors:
   - family-names: Baldera-Moreno
     given-names: Yvan
-    affiliation: "Universidad Católica del Maule, Chile"
+    affiliation: "Departamento de Ciencias Pre-clínicas, Universidad Católica del Maule, Talca, Chile"
     orcid: "https://orcid.org/0000-0001-6029-5806"
 version: 0.3.1
 date-released: 2026-10-11
