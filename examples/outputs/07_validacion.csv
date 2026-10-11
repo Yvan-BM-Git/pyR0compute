@@ -1,0 +1,16 @@
+caso,fuente,n,m,coincide,t_s,A1,A2,A3,A4,A5
+Tratamiento,"vdW 2002, 4.1",4,2,True,0.15,holds,holds,holds,holds,undecided
+"Tratamiento, Tabla 1(a)","vdW 2002, 4.1",4,2,True,0.15,holds,holds,holds,holds,holds
+"Tratamiento, Tabla 1(b)","vdW 2002, 4.1",4,2,True,0.16,holds,holds,holds,holds,holds
+Progresión por etapas,"vdW 2002, 4.3",5,4,True,0.27,holds,holds,holds,holds,holds
+Multicepa,"vdW 2002, 4.4",3,2,True,0.12,holds,holds,holds,holds,holds
+Vector-huésped,"vdW 2002, 4.5",4,2,True,0.08,holds,holds,holds,holds,holds
+Infección crónica,"CH 2017, Ec. (1)",3,2,True,0.04,holds,holds,holds,holds,holds
+Proliferación hepática,"CH 2017, Ec. (3)",3,2,True,0.23,holds,holds,holds,holds,undecided
+Infección aguda con latencia,"CH 2017, Ec. (6)",4,3,True,0.04,holds,holds,holds,holds,fails
+"Autorreplicación, R0,I","CH 2017, Ec. (7)",3,2,True,0.11,holds,holds,holds,holds,undecided
+"Autorreplicación, R0,V","CH 2017, Ec. (7)",3,2,True,0.05,fails,holds,holds,holds,holds
+Pérdida de patógeno,"CH 2017, Ec. (14)",3,2,True,0.13,holds,holds,holds,holds,holds
+Virus sin linfocitos T,"CH-2025, (2.1)",3,2,True,0.07,holds,holds,holds,holds,holds
+Linfocitos T colaboradores,"CH-2025, (2.2)",4,2,True,0.17,holds,holds,holds,holds,holds
+Linfocitos T reguladores,"CH-2024, (3)",7,2,True,7.96,holds,holds,holds,holds,undecided
