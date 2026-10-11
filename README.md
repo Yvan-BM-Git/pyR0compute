@@ -8,6 +8,7 @@ Escribe el modelo, indica qué compartimentos están infectados y pyR0compute ha
 [![Python](https://img.shields.io/pypi/pyversions/pyR0compute)](https://pypi.org/project/pyR0compute/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Yvan-BM-Git/pyR0compute/blob/main/LICENSE)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yvan-BM-Git/pyR0compute/blob/main/examples/01_ejemplos.ipynb)
+[![DOI](https://zenodo.org/badge/1033480469.svg)](https://doi.org/10.5281/zenodo.23298227)
 
 ## Instalación
 
@@ -211,7 +212,11 @@ El notebook `examples/01_ejemplos.ipynb` contiene ejemplos listos para ejecutar 
 
 ## Cita
 
-Si usas pyR0compute en tu investigación, cítalo con el DOI de Zenodo (cada release de GitHub se archiva en Zenodo; ver también `CITATION.cff` o el botón *Cite this repository* de GitHub) junto con:
+Si usas pyR0compute en tu investigación, cítalo con su DOI de Zenodo, que reúne todas las versiones y resuelve a la más reciente:
+
+> Baldera-Moreno, Y. *pyR0compute: A Python library for automated symbolic computation of the basic reproduction number via the next-generation matrix*. Zenodo. https://doi.org/10.5281/zenodo.23298227
+
+Cada release de GitHub se archiva en Zenodo con su propio DOI (la versión 0.3.1 es https://doi.org/10.5281/zenodo.23298228). El archivo `CITATION.cff` y el botón *Cite this repository* de GitHub dan la cita en APA y BibTeX. Cita también:
 
 * van den Driessche, P., & Watmough, J. (2002). Reproduction numbers and sub-threshold endemic equilibria for compartmental models of disease transmission. *Mathematical Biosciences*, 180(1-2), 29-48.
 * Diekmann, O., Heesterbeek, J. A. P., & Roberts, M. G. (2010). The construction of next-generation matrices for compartmental epidemic models. *Journal of the Royal Society Interface*, 7(47), 873-885.
