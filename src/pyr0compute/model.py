@@ -52,16 +52,20 @@ class DFESymbol(sp.Symbol):
 
     @property
     def compartment(self) -> sp.Symbol:
+        """State variable whose disease-free value this symbol stands for."""
         return sp.Symbol(self.name[: -len("_star")])
 
     def _latex(self, printer):
+        """LaTeX form ``X^{*}``."""
         return printer._print(self.compartment) + "^{*}"
 
     def _pretty(self, printer):
+        """Pretty-printed form ``X*``."""
         from sympy.printing.pretty.stringpict import prettyForm
         return prettyForm(*printer._print(self.compartment).right("*"))
 
     def _sympystr(self, printer):
+        """String form ``X_star`` (so that ``X_star*beta`` is not read as a power)."""
         return self.name
 
 
@@ -136,6 +140,10 @@ class R0Model:
         seed: int = 0,
         dfe_timeout: Optional[float] = 20.0,
     ) -> None:
+        """Parse the model, classify the terms, solve the disease-free equilibrium and build F and V.
+
+        See the class docstring for the parameters.
+        """
         if dfe_timeout is not None and not dfe_timeout > 0:
             raise ModelSpecificationError("dfe_timeout must be a positive number of seconds or None.")
         self.dfe_timeout = dfe_timeout
@@ -202,6 +210,7 @@ class R0Model:
 
     # ------------------------------------------------------- input handling
     def _normalize_equations(self, equations, variables):
+        """Return ``(variables, right-hand sides)`` from text, a mapping or a sequence of expressions."""
         if isinstance(equations, str):
             if variables is not None:
                 raise ModelSpecificationError(
@@ -240,6 +249,7 @@ class R0Model:
         )
 
     def _normalize_infected(self, infected):
+        """Return the infected compartments as symbols, from names, symbols or indices."""
         if isinstance(infected, (str, sp.Symbol, int)):
             infected = [infected]
         table = {v.name: v for v in self.variables}
@@ -263,6 +273,7 @@ class R0Model:
         return tuple(out)
 
     def _normalize_new_infections(self, new_infections, table):
+        """Return the user-given new-infection terms as ``{infected compartment: expression}``."""
         if new_infections is None:
             return {}
         if isinstance(new_infections, Mapping):
@@ -295,6 +306,7 @@ class R0Model:
         )
 
     def _normalize_dfe(self, dfe, table):
+        """Return the user-given disease-free values as ``{state variable: expression}``."""
         if not dfe:
             return {}
         out = {}
@@ -306,6 +318,7 @@ class R0Model:
         return out
 
     def _check_declared_parameters(self, declared):
+        """Warn when the declared parameters differ from the symbols detected as parameters."""
         if declared is None:
             return
         declared = {to_symbol(p).name for p in declared}
@@ -322,12 +335,15 @@ class R0Model:
 
     # --------------------------------------------------------------- helpers
     def _pos(self, expr):
+        """Replace the symbols of ``expr`` by their positive internal versions."""
         return sp.sympify(expr).xreplace(self._to_pos)
 
     def _orig(self, expr):
+        """Replace the positive internal symbols of ``expr`` by the user's symbols."""
         return expr.xreplace(self._to_orig)
 
     def _simp(self, expr):
+        """Simplify ``expr`` (element-wise for matrices) and factor rational functions."""
         if not self._simplify_enabled:
             return expr
         if isinstance(expr, sp.MatrixBase):
@@ -382,6 +398,7 @@ class R0Model:
         groups = {x: self._groups(self._f[x]) for x in self._x}
 
         def lost_from(dep, compartments, exclude=None):
+            """Compartments among ``compartments`` whose equations lose the term ``dep``."""
             return [
                 x for x in compartments
                 if x is not exclude and dep in groups[x] and self._sign(groups[x][dep]) == -1
@@ -458,6 +475,7 @@ class R0Model:
         return chosen, candidates
 
     def _star(self, x) -> sp.Symbol:
+        """Return the compact symbol ``X^*`` for the disease-free value of ``x``."""
         star = DFESymbol(f"{x.name}_star", positive=True)
         if star.name in self.symbols:
             raise ModelSpecificationError(
@@ -498,6 +516,7 @@ class R0Model:
         return eqs, components
 
     def _random_params(self, n: int):
+        """Return the parameters and ``n`` random positive values for each (uniform in [0.01, 1])."""
         params = sorted((p for p in self._to_orig if p not in self._x), key=lambda s: s.name)
         return params, [self._rng.uniform(0.01, 1.0, len(params)) for _ in range(n)]
 
@@ -581,6 +600,12 @@ class R0Model:
 
     def _compute_dfe_blocks(self, known, eqs, components):
         # state: (compact point, star definitions, star -> explicit value)
+        """Solve the disease-free equilibrium block by block, in topological order.
+
+        Each block is solved with a time limit; values are kept as compact symbols
+        ``X^*`` and blocks without a closed form stay implicit. Returns the chosen
+        equilibrium and the list of candidate equilibria.
+        """
         states = [(dict(known), {}, {})]
         self._implicit_blocks = []
         self._block_log = []
@@ -648,6 +673,7 @@ class R0Model:
         undetermined = [x for x in self._xu if x not in states[0][0]]
 
         def explicit_point(state):
+            """Disease-free point of a solving state with the compact symbols replaced."""
             compact, _, star_full = state
             point = {x: v.xreplace(star_full) for x, v in compact.items()}
             for x in undetermined:
@@ -655,6 +681,7 @@ class R0Model:
             return point
 
         def nonzero(state):
+            """Number of nonzero compartments in the disease-free point of a state."""
             return sum(1 for v in explicit_point(state).values() if not sp.sympify(v).is_zero)
 
         states.sort(key=lambda st: -nonzero(st))
@@ -730,6 +757,7 @@ class R0Model:
             candidates = solutions
 
         def full(solution):
+            """Complete a solution of the global solve with the known values."""
             point = dict(known)
             point.update({k: sp.simplify(v) for k, v in solution.items()})
             for x in unknown:
@@ -784,6 +812,7 @@ class R0Model:
         # values without a short closed form are the symbols X^*. The matrices
         # stay small and R0 is simplified in that form; explicit values are
         # substituted only at the end, without simplification.
+        """Build F, V and the next-generation matrix at the compact disease-free equilibrium."""
         Fv = sp.Matrix([self._F_terms[x] for x in self._xi])
         Vv = sp.Matrix([self._V_terms[x] for x in self._xi])
         F = self._simp(Fv.jacobian(self._xi).xreplace(self._dfe_compact))
@@ -827,6 +856,7 @@ class R0Model:
 
     # -------------------------------------------------------------------- R0
     def _rank_one(self, K) -> bool:
+        """True if every 2x2 minor of ``K`` is zero, so that ``K`` has rank one (or zero)."""
         n = K.shape[0]
         for i in range(n):
             for j in range(i + 1, n):
@@ -857,6 +887,11 @@ class R0Model:
         return params, (good or fallback[:n_wanted])
 
     def _dominant(self, eigs):
+        """Return the eigenvalue of K that is largest for every sampled parameter set.
+
+        Raises NextGenerationError when the dominant eigenvalue depends on the
+        parameters or cannot be identified.
+        """
         if self.dfe_is_implicit:
             raise NextGenerationError(
                 "Several eigenvalues of F V^-1 may dominate and part of the disease-free "
@@ -907,6 +942,7 @@ class R0Model:
         return [i for i in range(n) if any(sp.simplify(self._Fc[i, j]) != 0 for j in range(n))]
 
     def _compute_R0(self):
+        """Compute R0 and the eigenvalues of the next-generation matrix on its small domain."""
         rows = self._small_domain()
         K = self._Kc.extract(rows, rows)
         n_zero = self._Kc.shape[0] - len(rows)
@@ -1011,6 +1047,7 @@ class R0Model:
     K = next_generation_matrix
 
     def _values(self, values: Mapping[SymbolLike, float]) -> Dict[sp.Symbol, float]:
+        """Map user parameter values ``{name or symbol: value}`` to the internal symbols."""
         out = {}
         for key, val in values.items():
             sym = to_symbol(key, self.symbols)
@@ -1081,6 +1118,7 @@ class R0Model:
         return out
 
     def _check_missing(self, expr):
+        """Raise ModelSpecificationError if ``expr`` still contains parameters without a value."""
         missing = sorted(str(self._orig(s)) for s in sp.sympify(expr).free_symbols
                          if s not in self._star_full)
         if missing:
@@ -1114,6 +1152,7 @@ class R0Model:
         other_values = [float(known[sym]) if sym in known else float(vals[sym]) for sym in others]
 
         def field(_t, y):
+            """Right-hand side of the uninfected subsystem for ``solve_ivp``."""
             return np.asarray(func(*y, *other_values), dtype=float)
 
         y = np.ones(len(stars))
@@ -1171,6 +1210,7 @@ class R0Model:
 
     # ------------------------------------------------------ DFE stability (A5)
     def _uninfected_jacobian(self):
+        """Return the uninfected compartments and the Jacobian of their equations at the DFE."""
         xu = [x for x in self._xu if self._dfe_compact.get(x) is not x]
         f = sp.Matrix([self._f[x] for x in xu])
         return xu, f.jacobian(xu).xreplace(self._dfe_compact)
@@ -1229,6 +1269,7 @@ class R0Model:
         return result
 
     def _triangular_eigenvalues(self, xu, J):
+        """Diagonal of ``J`` if ``J`` is triangular after reordering the compartments, else None."""
         n = len(xu)
         edges = [(i, j) for i in range(n) for j in range(n) if i != j and J[i, j] != 0]
         comps = sp.utilities.iterables.strongly_connected_components((list(range(n)), edges))
@@ -1329,6 +1370,7 @@ class R0Model:
     def report(self) -> str:
         """Step-by-step description of the computation."""
         def pp(obj):
+            """Unicode pretty form of a SymPy object."""
             return sp.pretty(obj, use_unicode=True)
 
         lines = ["=" * 64, "pyR0compute: next-generation matrix method", "=" * 64]
@@ -1396,21 +1438,26 @@ class R0Model:
             raise ValueError("style must be 'document' or 'markdown'.")
 
         def tex(obj):
+            """LaTeX form of a SymPy object for the report."""
             return sp.latex(obj, mat_str=mat_str, mat_delim="")
 
         def names(symbols):
+            """Comma-separated LaTeX names of ``symbols``."""
             return ", ".join(tex(s) for s in symbols)
 
         def block(rows):
+            """Aligned block of equations ``lhs = rhs`` (Markdown or LaTeX)."""
             body = " \\\\\n".join(f"{lhs} &= {rhs}" for lhs, rhs in rows)
             if style == "markdown":
                 return f"$$\n\\begin{{aligned}}\n{body}\n\\end{{aligned}}\n$$"
             return f"\\begin{{align*}}\n{body}\n\\end{{align*}}"
 
         def heading(text):
+            """Section heading in the style of the report."""
             return f"### {text}" if style == "markdown" else f"\\subsection*{{{text}}}"
 
         def inline(math):
+            """Inline math in the style of the report."""
             return f"${math}$"
 
         md = style == "markdown"
@@ -1502,6 +1549,7 @@ class R0Model:
         return text
 
     def __repr__(self) -> str:
+        """Short description with the variables, infected compartments and parameters."""
         return (
             f"R0Model(variables={list(self.variables)}, infected={list(self.infected)}, "
             f"parameters={list(self.parameters)})"

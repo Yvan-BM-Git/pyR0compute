@@ -12,6 +12,7 @@ import sys
 
 
 def main() -> None:
+    """Read the pickled system from stdin, solve it and write the pickled result to stdout."""
     data = pickle.load(sys.stdin.buffer)
     import sympy as sp
 

@@ -51,6 +51,7 @@ __all__ = ["GlobalSensitivityResult", "make_distribution", "prcc", "sobol"]
 
 # ---------------------------------------------------------------- scipy
 def _scipy_stats(min_version: Tuple[int, int] = (1, 7)):
+    """Import and return ``scipy.stats``, checking the minimum SciPy version."""
     try:
         import scipy
         import scipy.stats as stats
@@ -144,6 +145,7 @@ def make_distribution(spec):
 
 
 def _describe(dist) -> str:
+    """Short text description of a frozen ``scipy.stats`` distribution."""
     name = getattr(getattr(dist, "dist", None), "name", type(dist).__name__)
     low, high = dist.ppf(0.0), dist.ppf(1.0)
     if np.isfinite(low) and np.isfinite(high):
@@ -156,6 +158,7 @@ class _R0Evaluator:
     """Vectorized numerical evaluation of R0 (and its derivatives)."""
 
     def __init__(self, model):
+        """Prepare a vectorized evaluator of R0 (closed form, compact chain or numerical DFE)."""
         self.model = model
         self.implicit = bool(getattr(model, "dfe_is_implicit", False))
         try:
@@ -195,9 +198,11 @@ class _R0Evaluator:
 
     @property
     def names(self) -> List[str]:
+        """Names of the parameters of R0."""
         return [p.name for p in self.parameters]
 
     def __call__(self, columns: Sequence[np.ndarray]) -> np.ndarray:
+        """Evaluate R0 for arrays of parameter values (one array per parameter)."""
         n = len(columns[0]) if columns else 1
         if self.implicit:
             out = np.full(n, np.nan)
@@ -247,6 +252,7 @@ class _R0Evaluator:
 
         def total(expr, d_stars):
             # d expr / dp = partial in p + sum over X* of (partial in X*) * dX*/dp
+            """Total derivative of ``expr`` with respect to the parameter through the chain of X*."""
             value = sp.lambdify(self._args, sp.diff(expr, p), "numpy")(*args)
             for (s, _), ds in zip(self._chain, d_stars):
                 if s in expr.free_symbols:
@@ -285,6 +291,7 @@ def _resolve(model, evaluator, distributions, baseline, spread, fixed):
         raise ModelSpecificationError("spread must be in (0, 1), e.g. 0.2 for +/-20%.")
 
     def name_of(key):
+        """Name of a parameter given as a string or symbol, checked against the model."""
         name = key.name if isinstance(key, sp.Symbol) else str(key)
         if name not in model.symbols:
             raise ModelSpecificationError(f"'{name}' is not a symbol of this model.")
@@ -364,9 +371,11 @@ class GlobalSensitivityResult:
 
     @property
     def main_index(self) -> str:
+        """Name of the main index: ``"PRCC"`` or ``"ST"``."""
         return "PRCC" if self.method == "LHS-PRCC" else "ST"
 
     def __getitem__(self, parameter) -> Dict[str, float]:
+        """Indices of one parameter as ``{index name: value}``."""
         name = parameter.name if isinstance(parameter, sp.Symbol) else str(parameter)
         names = [p.name for p in self.parameters]
         if name not in names:
@@ -398,6 +407,7 @@ class GlobalSensitivityResult:
         return df.loc[self.ranking()]
 
     def _columns_to_show(self):
+        """Columns ``(key, label)`` of the tables and of the text summary."""
         if self.method == "LHS-PRCC":
             return [("PRCC", "PRCC"), ("p_value", "p")]
         cols = [("S1", "S_1"), ("ST", "S_T")]
@@ -406,6 +416,7 @@ class GlobalSensitivityResult:
         return cols
 
     def _cell(self, key, i, digits):
+        """Formatted value of index ``key`` for parameter ``i``."""
         if key.endswith("_ci"):
             base = key[:-3]
             lo, hi = self.indices[f"{base}_low"][i], self.indices[f"{base}_high"][i]
@@ -425,6 +436,7 @@ class GlobalSensitivityResult:
         md = style == "markdown"
 
         def head(label):
+            """Column header in LaTeX or Markdown."""
             if label.startswith("IC "):
                 return f"IC {(self.confidence_level or 0.95):.0%} ${label[3:]}$".replace("%", "\\%" if not md else "%")
             return label if label == "PRCC" else f"${label}$"
@@ -452,6 +464,7 @@ class GlobalSensitivityResult:
         return "\n".join(rows)
 
     def _output_tex(self):
+        """LaTeX name of the analysed output (R0 or log R0)."""
         return "\\log \\mathcal{R}_0" if self.output_name == "log R0" else "\\mathcal{R}_0"
 
     def plot(self, ax=None):
@@ -502,6 +515,7 @@ class GlobalSensitivityResult:
         return ax
 
     def __repr__(self) -> str:
+        """Text table of the indices."""
         cols = self._columns_to_show()
         names = [p.name for p in self.parameters]
         width = max(9, max(len(n) for n in names) + 2)
@@ -664,6 +678,7 @@ def sobol(model, distributions=None, *, n: int = 4096, baseline=None, spread=Non
         raise ModelSpecificationError(f"n must be a power of 2 (e.g. 1024, 4096); got {n}.")
 
     def func(x):
+        """R0 (or log R0) for a matrix of samples, in the form expected by ``scipy.stats.sobol_indices``."""
         y = evaluator(_columns(evaluator, varying, constants, np.asarray(x).T))
         if log_output:
             with np.errstate(all="ignore"):

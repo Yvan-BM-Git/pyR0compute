@@ -38,6 +38,12 @@ def _package_root() -> str:
 
 
 def _solve_in_worker(system, unknowns, timeout: float) -> Tuple[str, object]:
+    """Run ``sympy.solve`` in a separate interpreter and return ``(status, result)``.
+
+    The worker is killed after ``timeout`` seconds (status ``"timeout"``); a
+    worker that cannot start or fails returns ``"unavailable"`` with the end of
+    its standard error.
+    """
     payload = pickle.dumps({"system": list(system), "unknowns": list(unknowns)},
                            protocol=pickle.HIGHEST_PROTOCOL)
     env = dict(os.environ)
@@ -59,10 +65,16 @@ def _solve_in_worker(system, unknowns, timeout: float) -> Tuple[str, object]:
 
 
 class _Alarm(Exception):
+    """Raised by the ``SIGALRM`` handler when an in-process solve runs out of time."""
     pass
 
 
 def _solve_in_process(system, unknowns, timeout: Optional[float]) -> Tuple[str, object]:
+    """Run ``sympy.solve`` in the current process and return ``(status, result)``.
+
+    With a ``timeout`` and ``SIGALRM`` available (Unix, main thread), the solve is
+    interrupted after ``timeout`` seconds; otherwise it runs without a limit.
+    """
     use_alarm = (
         timeout is not None
         and hasattr(signal, "SIGALRM")
@@ -70,6 +82,7 @@ def _solve_in_process(system, unknowns, timeout: Optional[float]) -> Tuple[str, 
     )
     if use_alarm:
         def handler(signum, frame):
+            """Signal handler that interrupts the solve."""
             raise _Alarm()
 
         previous = signal.signal(signal.SIGALRM, handler)

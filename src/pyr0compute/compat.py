@@ -47,6 +47,7 @@ class GeneralEpidemiologicalModel(R0Model):
         verbose: bool = True,
         **kwargs,
     ) -> None:
+        """Build the model from the arguments of the original notebook class (see the class docstring)."""
         dfe = None
         if equilibrium_point is not None:
             dfe = dict(zip(variables, list(equilibrium_point)))

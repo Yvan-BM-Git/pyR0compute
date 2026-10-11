@@ -49,11 +49,13 @@ class Run:
     message: str = ""
 
     def __repr__(self) -> str:
+        """Short text description."""
         r0 = "None" if self.R0 is None else f"{self.R0:.4g}"
         return f"Run(R0={r0}, success={self.success})"
 
 
 def _require_scipy():
+    """Return ``scipy.integrate.solve_ivp`` or raise an informative ImportError."""
     try:
         from scipy.integrate import solve_ivp
     except ImportError as exc:  # pragma: no cover - depends on the environment
@@ -62,6 +64,7 @@ def _require_scipy():
 
 
 def _require_matplotlib():
+    """Return ``matplotlib.pyplot`` or raise an informative ImportError."""
     try:
         import matplotlib.pyplot as plt
     except ImportError as exc:  # pragma: no cover - depends on the environment
@@ -150,6 +153,7 @@ def simulate(model, t_span: Tuple[float, float] = (0.0, 100.0),
     random_names = [n for n in par_names if n not in fixed]
 
     def draw() -> Dict[str, float]:
+        """Draw one parameter set: fixed values plus random values for the others."""
         p = dict(fixed)
         for name in random_names:
             low, high = bounds.get(name, default_range)
@@ -158,6 +162,7 @@ def simulate(model, t_span: Tuple[float, float] = (0.0, 100.0),
         return p
 
     def r0_and_dfe(p):
+        """R0 and disease-free equilibrium at ``p`` (None where they cannot be computed)."""
         try:
             r0 = model.R0_numeric(p)
         except (R0ComputeError, ImportError, ValueError, ZeroDivisionError, TypeError):
@@ -169,6 +174,7 @@ def simulate(model, t_span: Tuple[float, float] = (0.0, 100.0),
         return r0, dfe
 
     def in_range(r0):
+        """True if ``r0`` lies in ``R0_range``."""
         if R0_range is None:
             return True
         if r0 is None:
@@ -207,6 +213,7 @@ def simulate(model, t_span: Tuple[float, float] = (0.0, 100.0),
         pvals = [p[n] for n in par_names]
 
         def rhs(_t, y, pvals=pvals):
+            """Right-hand side of the ODE system for ``solve_ivp``."""
             return np.asarray(f(*y, *pvals), dtype=float).ravel()
 
         with np.errstate(all="ignore"):
@@ -229,6 +236,7 @@ class SimulationResult:
     """
 
     def __init__(self, model, t, variables, runs):
+        """Store the model, the output times, the variable names and the runs."""
         self.model = model
         self.t = t
         self.variables = list(variables)
@@ -236,22 +244,27 @@ class SimulationResult:
 
     # ------------------------------------------------------------ access
     def _single(self):
+        """The first run (the one used by the single-run properties)."""
         return self.runs[0]
 
     @property
     def y(self) -> np.ndarray:
+        """Solution array (variables x times) of the first run."""
         return self._single().y
 
     @property
     def parameters(self) -> Dict[str, float]:
+        """Parameter values of the first run."""
         return self._single().parameters
 
     @property
     def initial(self) -> Dict[str, float]:
+        """Initial condition of the first run."""
         return self._single().initial
 
     @property
     def R0(self) -> Optional[float]:
+        """R0 of the first run."""
         return self._single().R0
 
     @property
@@ -260,6 +273,7 @@ class SimulationResult:
         return np.array([np.nan if r.R0 is None else r.R0 for r in self.runs])
 
     def __getitem__(self, variable) -> np.ndarray:
+        """Time series of one variable (one row per run when there are several)."""
         name = variable.name if isinstance(variable, sp.Symbol) else str(variable)
         if name not in self.variables:
             raise KeyError(f"'{name}' is not a state variable. Variables: {self.variables}")
@@ -297,9 +311,11 @@ class SimulationResult:
             return rows
 
     def __len__(self) -> int:
+        """Number of runs."""
         return len(self.runs)
 
     def __repr__(self) -> str:
+        """Short text description."""
         r0 = self.R0_values
         if len(self.runs) == 1:
             txt = "None" if np.isnan(r0[0]) else f"{r0[0]:.4g}"
@@ -310,6 +326,7 @@ class SimulationResult:
 
     # ------------------------------------------------------------ helpers
     def _names(self, variables):
+        """Validated names of the variables to plot (all by default)."""
         if variables is None:
             return list(self.variables)
         if isinstance(variables, (str, sp.Symbol)):
@@ -332,6 +349,7 @@ class SimulationResult:
         return {n: option for n in names}
 
     def _title(self, title):
+        """Title with ``{R0}`` replaced by the value of R0 of a single run."""
         if title is None:
             if len(self.runs) == 1 and self.R0 is not None:
                 return rf"$\mathcal{{R}}_0 = {self.R0:.3g}$"
@@ -343,6 +361,7 @@ class SimulationResult:
 
     @staticmethod
     def _style(ax, grid, logy, logx, xlim, ylim):
+        """Apply grid, spines, scales and limits to ``ax``."""
         if grid:
             ax.grid(True, color=_GRID, linewidth=0.6)
             ax.set_axisbelow(True)
@@ -359,6 +378,7 @@ class SimulationResult:
 
     @staticmethod
     def _save(fig, save, dpi):
+        """Save ``fig`` to ``save`` (creating the folder) if a path is given."""
         if save:
             folder = os.path.dirname(str(save))
             if folder:
